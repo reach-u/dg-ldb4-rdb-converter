@@ -1,14 +1,16 @@
 package com.demograft.ldb4rdbconverter;
 
-import com.demograft.ldb4rdbconverter.generated.LocationRecord;
 import com.univocity.parsers.common.record.Record;
 import com.univocity.parsers.csv.CsvParser;
 import com.univocity.parsers.csv.CsvParserSettings;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.JsonProperties;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.web.JsonUtil;
+import org.json.simple.JSONArray;
+import org.json.simple.JSONObject;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
@@ -40,15 +42,17 @@ public class Ldb4RdbConverter {
     @Option(name = "--input-file", required = true, usage = "Input file, accepts only CSV")
     private File inputFile;
 
-
-    /*
-    Väljastab ühe parkett faili
-     */
-    @Option(name = "--output-file", required = true, usage = "Väljund fail, parkett ")
+    @Option(name = "--output-file", required = true, usage = "Output file, outputs one parquet file")
     private String outputFile;
 
-    @Option(name = "--header", required = false, usage = "Määrab, kas on olemas header row")
-    private boolean headerrow = true;
+    @Option(name = "--longitude", required = false, usage = "Redefine the longitude row")
+    private String longitude = "longitude";
+
+    @Option(name = "--latitude", required = false, usage = "Redefine the latitude row")
+    private String latitude = "latitude";
+
+    @Option(name = "--time", required = false, usage = "Redefine the time row")
+    private String time = "time";
 
 
 
@@ -64,7 +68,7 @@ public class Ldb4RdbConverter {
         converter.run();
     }
 
-    static long timeToMillisecondsConverter(String time){
+    static long timeToMillisecondsConverter(String time) throws DateTimeParseException {
         try {
             DateTimeFormatter formatter
                     = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS xx");
@@ -90,64 +94,189 @@ public class Ldb4RdbConverter {
                     return date.toInstant().toEpochMilli();
                 }
                 catch(DateTimeParseException e2){
-                    try{
-                        DateTimeFormatter formatter
-                                = DateTimeFormatter.ISO_ZONED_DATE_TIME;
 
-                        ZonedDateTime date = ZonedDateTime.parse(time, formatter);
-                        return date.toInstant().toEpochMilli();
-                    }
-                    catch(DateTimeParseException e3){
-                        throw new RuntimeException("Invalid date format");
-                    }
+                    DateTimeFormatter formatter
+                            = DateTimeFormatter.ISO_ZONED_DATE_TIME;
+
+                    ZonedDateTime date = ZonedDateTime.parse(time, formatter);
+                    return date.toInstant().toEpochMilli();
+
                 }
             }
         }
     }
 
-    private void run(){
+    private void run() {
         CsvParserSettings settings = new CsvParserSettings();
         settings.getFormat().setLineSeparator("\n");
         CsvParser parser = new CsvParser(settings);
         List<Record> allRecords = new ArrayList<>();
         int files = 0;
-        if(inputFile.getName().endsWith(".csv")){
+        if (inputFile.getName().endsWith(".csv")) {
             allRecords = parser.parseAllRecords(inputFile);
-            if(headerrow){
-                allRecords.remove(0);
-            }
-        }
-        else if(inputFile.isDirectory()) {
+        } else if (inputFile.isDirectory()) {
             File[] listOfFiles = inputFile.listFiles();
-            for(File file: listOfFiles){
-                if(file.getName().endsWith(".csv")){
-                    files += 1;
-                    List<Record> newRecords = parser.parseAllRecords(file);
-                    if(headerrow){
-                        newRecords.remove(0);
+            for (File file : listOfFiles) {
+                try {
+                    if (file.getName().endsWith(".csv")) {
+                        files += 1;
+                        List<Record> newRecords = parser.parseAllRecords(file);
+                        if(files > 1){
+                            allRecords.remove(0);
+                        }
+                        allRecords.addAll(newRecords);
                     }
-                    allRecords.addAll(newRecords);
+                } catch (NullPointerException e) {
+                    throw new RuntimeException("Specified directory doesn't exist");
+                }
+            }
+        } else {
+            throw new RuntimeException("Error finding the file. Make sure the file name or directory name is correct.");
+        }
+        Record headers = allRecords.get(0);
+        Record examplerow = allRecords.get(1);
+        String[] headerarray = headers.getValues();
+        String[] examplearray = examplerow.getValues();
+
+        // Take the first data sample and the header row from the data and create a JSON object based on those that is then converted into a schema.
+
+
+        JSONObject mainjson = new JSONObject();
+        mainjson.put("name", "locationrecord");
+        mainjson.put("type", "record");
+        mainjson.put("namespace", "com.demograft.ldb4rdbconverter.generated");
+        JSONArray list = new JSONArray();
+        for(int i = 0; i < headerarray.length; i++){
+            String headername = headerarray[i].trim();
+            String example = examplearray[i];
+            JSONObject jo = new JSONObject();
+            // The three most important rows, longitude, latitude and time.
+
+            if(headername.equals(longitude)){
+                jo.put("name", "lon");
+                jo.put("type", "double");
+                list.add(jo);
+            }
+            else if(headername.equals(latitude)){
+                jo.put("name", "lat");
+                jo.put("type", "double");
+                list.add(jo);
+            } else if(headername.equals(time)){
+                jo.put("name", "time");
+                jo.put("type", "long");
+                list.add(jo);
+            } else {
+
+                try {
+                    long data = timeToMillisecondsConverter(example);
+                    jo.put("name", headername);
+                    JSONArray typelist = new JSONArray();
+                    typelist.add("null");
+                    typelist.add("long");
+                    jo.put("type", typelist);
+                    list.add(jo);
+                } catch (DateTimeParseException e) {
+                    {
+                        try {
+                            long data = Long.parseLong(example);
+                            jo.put("name", headername);
+                            JSONArray typelist = new JSONArray();
+                            typelist.add("null");
+                            typelist.add("long");
+                            jo.put("type", typelist);
+                            list.add(jo);
+                        } catch (NumberFormatException e2) {
+                            try {
+                                double data = Double.parseDouble(example);
+                                JSONArray typelist = new JSONArray();
+                                jo.put("name", headername);
+                                typelist.add("null");
+                                typelist.add("double");
+                                jo.put("type", typelist);
+                                list.add(jo);
+                            } catch (NumberFormatException e3) {
+                                JSONArray typelist = new JSONArray();
+                                jo.put("name", headername);
+                                typelist.add("null");
+                                typelist.add("string");
+                                jo.put("type", typelist);
+                                list.add(jo);
+                            }
+                        }
+                    }
+                } catch (NullPointerException e) {
+                    // If in the example data line the value indicated is null, that property is ignored and not used to construct the schema.
                 }
             }
         }
-        else {
-            throw new RuntimeException("Error finding the file. Make sure the file name or directory name is correct.");
-        }
-        log.info("Found " + files + " files with a total of " + allRecords.size() + " records.");
-        Schema avroSchema = LocationRecord.getClassSchema();
-        List<GenericData.Record> parquetrecords = new ArrayList<>();
+        mainjson.put("fields",list);
+
+         //log.info(mainjson.toString());
+
+        allRecords.remove(0);
+
+        Schema avroSchema = new Schema.Parser().parse(mainjson.toString());
 
 
+
+
+
+        List<GenericData.Record> toWriteList = new ArrayList<>();
 
         for(Record record: allRecords){
             GenericRecordBuilder genericRecordBuilder = new GenericRecordBuilder(avroSchema);
-            for (Schema.Field field: avroschema) {
-                genericRecordBuilder = genericRecordBuilder.set(field, );
+            for (Schema.Field field: avroSchema.getFields()) {
+                Schema schema = field.schema();
+
+                //Union data types always have 2 types, first is null and second is the needed type.
+
+                if(schema.getType() == Schema.Type.UNION){
+                    if(record.getString(field.name()) == null){
+                        schema = schema.getTypes().get(0);
+                    }
+                    else{
+                        schema = schema.getTypes().get(1);
+                    }
+                }
+                switch(schema.getType()){
+                    case LONG:
+                        if (field.name().equals("time")){
+                            genericRecordBuilder = genericRecordBuilder.set("time", timeToMillisecondsConverter(record.getString(time)));
+                        }
+                        else {
+                            try {
+                                genericRecordBuilder = genericRecordBuilder.set(field, record.getLong(field.name()));
+                            } catch (NumberFormatException e) {
+                                genericRecordBuilder = genericRecordBuilder.set(field,
+                                        timeToMillisecondsConverter(record.getString(field.name())));
+                            }
+                        }
+                        break;
+                    case DOUBLE:
+                        if (field.name().equals("lon")){
+                            genericRecordBuilder = genericRecordBuilder.set("lon", record.getDouble(longitude));
+                        }
+                        else if(field.name().equals("lat")){
+                            genericRecordBuilder = genericRecordBuilder.set("lat", record.getDouble(latitude));
+                        }
+                        else {
+                            genericRecordBuilder = genericRecordBuilder.set(field, record.getDouble(field.name()));
+                        }
+                        break;
+                    case STRING:
+                        genericRecordBuilder = genericRecordBuilder.set(field, record.getString(field.name()));
+                        break;
+                    case NULL:
+                        genericRecordBuilder = genericRecordBuilder.set(field, null);
+
+                        //Union data types always have 2 types, first is null and second is the needed type.
+                }
         }
             GenericData.Record towrite = genericRecordBuilder.build();
-            parquetrecords.add(towrite);
+            toWriteList.add(towrite);
         }
         // CSV -> JSON -> Schema -> Record -> Parquetfile
+        //List<Schema.Field> testlist = toWriteList.get(1).getSchema().getFields();
 
 
         int blockSize = 1024;
@@ -163,13 +292,14 @@ public class Ldb4RdbConverter {
                         blockSize,
                         pageSize)
         ){
-            for(GenericData.Record obj : parquetrecords){
+            for(GenericData.Record obj : toWriteList){
                 parquetWriter.write(obj);
             }
         }catch(java.io.IOException e){
             System.out.println(String.format("Error writing parquet file %s", e.getMessage()));
             e.printStackTrace();
         }
-    }
 
+    }
 }
+
