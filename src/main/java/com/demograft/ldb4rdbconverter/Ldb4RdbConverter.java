@@ -138,7 +138,7 @@ public class Ldb4RdbConverter {
         List<GenericData.Record> parquetrecords = new ArrayList<>();
 
 
-
+        //sdasda
         for(Record record: allRecords){
             GenericRecordBuilder genericRecordBuilder = new GenericRecordBuilder(avroSchema);
             for (Schema.Field field: avroschema) {
