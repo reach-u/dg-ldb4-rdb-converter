@@ -1,0 +1,12 @@
+{
+"type": "record",
+"namespace": "com.demograft.ldb4rdbconverter.generated",
+"name": "LocationRecord",
+"fields": [
+  { "name": "lon", "type": "double" },
+  { "name": "lat", "type": "double" },
+  { "name": "time", "type": "long"},
+  { "name": "ueBrandName", "type": "string"},
+  { "name": "networkType", "type": "string"}
+]
+}
