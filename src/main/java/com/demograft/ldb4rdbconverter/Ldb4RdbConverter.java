@@ -23,10 +23,7 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 import org.apache.avro.Schema;
 import org.apache.parquet.schema.MessageType;
@@ -58,6 +55,7 @@ public class Ldb4RdbConverter {
 
     private DateTimeFormatter timeFormatter;
 
+    private StringBuilder statistics = new StringBuilder();
 
     public static void main(String[] args) {
         Ldb4RdbConverter converter = new Ldb4RdbConverter();
@@ -268,8 +266,13 @@ public class Ldb4RdbConverter {
 
     private List<GenericData.Record> convertToParquetRecords(Schema schema, List<Record> csvRecords){
         List<GenericData.Record> toWriteList = new ArrayList<>();
-
+        HashMap<String, Integer[]> statsTable = new HashMap<>();
+        for (Schema.Field field: schema.getFields()){
+            statsTable.put(field.name(), new Integer[]{0,0});
+        }
+        statistics.append("Parquet file generation successful. \n \n \n General statistics: \n  Found a total of " + csvRecords.size() + " records. ");
         for(Record record: csvRecords){
+            boolean malformed = false;
             GenericRecordBuilder genericRecordBuilder = new GenericRecordBuilder(schema);
             for (Schema.Field field: schema.getFields()) {
                 Schema subschema = field.schema();
@@ -287,39 +290,110 @@ public class Ldb4RdbConverter {
                 switch(subschema.getType()){
                     case LONG:
                         if (field.name().equals("time")){
-                            genericRecordBuilder = genericRecordBuilder.set("time", timeToMillisecondsConverter(record.getString(time), timeFormatter));
+                                try {
+                                    genericRecordBuilder = genericRecordBuilder.set("time", timeToMillisecondsConverter(record.getString(time), timeFormatter));
+                                    Integer[] stat = statsTable.get("time");
+                                    stat[0] += 1;
+                                    statsTable.put("time", stat);
+                                }
+                                catch(NullPointerException|DateTimeParseException e){
+                                    Integer[] stat2 = statsTable.get("time");
+                                    stat2[1] += 1;
+                                    statsTable.put("time", stat2);
+                                    malformed = true;
+                                    break;
+                                }
                         }
                         else {
-                            try {
-                                genericRecordBuilder = genericRecordBuilder.set(field, record.getLong(field.name()));
-                            } catch (NumberFormatException e) {
-                                genericRecordBuilder = genericRecordBuilder.set(field,
-                                        timeToMillisecondsConverter(record.getString(field.name()), timeFormatter));
+                             // Could be null, long, or datetime
+                                Integer[] stat = statsTable.get(field.name());
+                                stat[0] += 1;
+                                statsTable.put(field.name(), stat);
+
+                                try {
+                                    genericRecordBuilder = genericRecordBuilder.set(field, record.getLong(field.name()));
+                                } catch (NumberFormatException e) {
+                                    try{
+                                        genericRecordBuilder = genericRecordBuilder.set(field, timeToMillisecondsConverter(record.getString(field.name()), timeFormatter));
+                                    }
+                                    catch (DateTimeParseException e1) {
+                                        Integer[] stat2 = statsTable.get(field.name());
+                                        stat2[1] += 1;
+                                        statsTable.put(field.name(), stat2);
+                                    }
                             }
                         }
                         break;
                     case DOUBLE:
                         if (field.name().equals("lon")){
-                            genericRecordBuilder = genericRecordBuilder.set("lon", record.getDouble(longitude));
+                            try {
+                                genericRecordBuilder = genericRecordBuilder.set("lon", record.getDouble(longitude));
+                                Integer[] stat = statsTable.get("lon");
+                                stat[0] += 1;
+                                statsTable.put("lon", stat);
+                            }
+                            catch(NullPointerException | NumberFormatException e){
+                                Integer[] stat2 = statsTable.get(longitude);
+                                stat2[1] += 1;
+                                statsTable.put(longitude, stat2);
+                                malformed = true;
+                                break;
+                            }
                         }
                         else if(field.name().equals("lat")){
-                            genericRecordBuilder = genericRecordBuilder.set("lat", record.getDouble(latitude));
+                            try {
+                                genericRecordBuilder = genericRecordBuilder.set("lat", record.getDouble(latitude));
+                                Integer[] stat = statsTable.get("lat");
+                                stat[0] += 1;
+                                statsTable.put("lat", stat);
+                            }
+                            catch(NullPointerException | NumberFormatException e){
+                                Integer[] stat2 = statsTable.get(latitude);
+                                stat2[1] += 1;
+                                statsTable.put(latitude, stat2);
+                                malformed = true;
+                                break;
+                            }
                         }
                         else {
-                            genericRecordBuilder = genericRecordBuilder.set(field, record.getDouble(field.name()));
+                            Integer[] stat = statsTable.get(field.name());
+                            stat[0] += 1;
+                            statsTable.put(field.name(), stat);
+                            try {
+                                genericRecordBuilder = genericRecordBuilder.set(field, record.getDouble(field.name()));
+                            }
+                            catch(NumberFormatException e){
+                                Integer[] stat2 = statsTable.get(field.name());
+                                stat2[1] += 1;
+                                statsTable.put(field.name(), stat2);
+                            }
                         }
                         break;
                     case STRING:
+                        Integer[] stat = statsTable.get(field.name());
+                        stat[0] += 1;
+                        statsTable.put(field.name(), stat);
                         genericRecordBuilder = genericRecordBuilder.set(field, record.getString(field.name()));
                         break;
                     case NULL:
+                        Integer[] stat2 = statsTable.get(field.name());
+                        stat2[1] += 1;
+                        statsTable.put(field.name(), stat2);
                         genericRecordBuilder = genericRecordBuilder.set(field, null);
+                        break;
 
                         //Union data types always have 2 types, first is null and second is the needed type.
                 }
             }
-            GenericData.Record towrite = genericRecordBuilder.build();
-            toWriteList.add(towrite);
+            if(!malformed) {
+                GenericData.Record towrite = genericRecordBuilder.build();
+                toWriteList.add(towrite);
+            }
+        }
+        statistics.append(toWriteList.size() + " records parsed into the parquet file. " + (csvRecords.size() - toWriteList.size()) + " records contained malformed lat, lon or time fields.\n");
+        statistics.append("Field statistics in the form of: field name, non-null values, null values :  \n\n");
+        for(String key: statsTable.keySet()){
+            statistics.append(key + " , non-null: " + statsTable.get(key)[0] + " , null: " + statsTable.get(key)[1] + "\n");
         }
         return toWriteList;
     }
@@ -377,6 +451,13 @@ public class Ldb4RdbConverter {
         }catch(java.io.IOException e){
             System.out.println(String.format("Error writing parquet file %s", e.getMessage()));
             e.printStackTrace();
+        }
+
+        try(FileWriter fw = new FileWriter("stats.txt")){
+            fw.write(statistics.toString());
+        }
+        catch(IOException e){
+            System.out.println("Error writing the statistics file. Error message: " + e.getMessage());
         }
 
     }
