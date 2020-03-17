@@ -15,6 +15,8 @@ import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -106,14 +108,15 @@ public class Ldb4RdbConverter {
         }
     }
 
-    private void run() {
+    // Takes the CSV file/folder given by the command line and parses all of the records in it.
+    private List<Record> parseCSV(){
         CsvParserSettings settings = new CsvParserSettings();
         settings.getFormat().setLineSeparator("\n");
         CsvParser parser = new CsvParser(settings);
-        List<Record> allRecords = new ArrayList<>();
+        List<Record> parsedRecords = new ArrayList<>();
         int files = 0;
         if (inputFile.getName().endsWith(".csv")) {
-            allRecords = parser.parseAllRecords(inputFile);
+            parsedRecords = parser.parseAllRecords(inputFile);
         } else if (inputFile.isDirectory()) {
             File[] listOfFiles = inputFile.listFiles();
             for (File file : listOfFiles) {
@@ -122,33 +125,29 @@ public class Ldb4RdbConverter {
                         files += 1;
                         List<Record> newRecords = parser.parseAllRecords(file);
                         if(files > 1){
-                            allRecords.remove(0);
+                            parsedRecords.remove(0);
                         }
-                        allRecords.addAll(newRecords);
+                        parsedRecords.addAll(newRecords);
                     }
                 } catch (NullPointerException e) {
                     throw new RuntimeException("Specified directory doesn't exist");
                 }
             }
         } else {
-            throw new RuntimeException("Error finding the file. Make sure the file name or directory name is correct.");
+            throw new RuntimeException("Error finding the file. Make sure the file name or directory name is correct and that all the files are .csv files.");
         }
-        Record headers = allRecords.get(0);
-        Record examplerow = allRecords.get(1);
-        String[] headerarray = headers.getValues();
-        String[] examplearray = examplerow.getValues();
+        return parsedRecords;
+    }
 
-        // Take the first data sample and the header row from the data and create a JSON object based on those that is then converted into a schema.
-
-
+    private JSONObject createJSONFromCSVRecords(String[] headerrow, String[] examplerow){
         JSONObject mainjson = new JSONObject();
         mainjson.put("name", "locationrecord");
         mainjson.put("type", "record");
         mainjson.put("namespace", "com.demograft.ldb4rdbconverter.generated");
         JSONArray list = new JSONArray();
-        for(int i = 0; i < headerarray.length; i++){
-            String headername = headerarray[i].trim();
-            String example = examplearray[i];
+        for(int i = 0; i < headerrow.length; i++){
+            String headername = headerrow[i].trim();
+            String example = examplerow[i];
             JSONObject jo = new JSONObject();
             // The three most important rows, longitude, latitude and time.
 
@@ -209,36 +208,75 @@ public class Ldb4RdbConverter {
                 }
             }
         }
+
         mainjson.put("fields",list);
+        return mainjson;
+    }
 
-         //log.info(mainjson.toString());
+    private void writeAttributeFile(Schema schema, String fileName){
+        JSONObject attributeTr = new JSONObject();
+        JSONArray data = new JSONArray();
+        for (Schema.Field field: schema.getFields()){
+            JSONObject row = new JSONObject();
+            row.put("hidden", false);
+            if(field.name().equals("lat")){
+                row.put("attributeName", "Latitude");
+                row.put("attributeTooltip", "Refined location of the record, used by heatmapping and optionally by trajectory visualisation function" +
+                        "\\nGeographic WGS84 coordinate in decimal degrees." +
+                        "\\nIn the current version equals to " + latitude);
+                row.put("group","Geographic Location");
+                row.put("unit","degrees");
+                row.put("attributeId", field.name());
+                data.add(row);
+            }
+            else if(field.name().equals("lon")){
+                row.put("attributeName", "Longitude");
+                row.put("attributeTooltip", "Refined location of the record, used by heatmapping and optionally by trajectory visualisation function" +
+                        "\\nGeographic WGS84 coordinate in decimal degrees." +
+                        "\\nIn the current version equals to " + longitude);
+                row.put("group","Geographic Location");
+                row.put("unit","degrees");
+                row.put("attributeId", field.name());
+                data.add(row);
+            }
+            else{
+                row.put("attributeName", field.name());
+                row.put("attributeTooltip", field.name());
+                row.put("group","Generic");
+                row.put("attributeId", field.name());
+                data.add(row);
+            }
 
-        allRecords.remove(0);
+        }
+        attributeTr.put("data", data);
 
-        Schema avroSchema = new Schema.Parser().parse(mainjson.toString());
+        try(FileWriter fw = new FileWriter(fileName)){
+            fw.write(attributeTr.toJSONString());
+        }
+        catch(IOException e){
+            System.out.println("Error writing the attributeTranslation file. Error message: " + e.getMessage());
+        }
+    }
 
-
-
-
-
+    private List<GenericData.Record> convertToParquetRecords(Schema schema, List<Record> csvRecords){
         List<GenericData.Record> toWriteList = new ArrayList<>();
 
-        for(Record record: allRecords){
-            GenericRecordBuilder genericRecordBuilder = new GenericRecordBuilder(avroSchema);
-            for (Schema.Field field: avroSchema.getFields()) {
-                Schema schema = field.schema();
+        for(Record record: csvRecords){
+            GenericRecordBuilder genericRecordBuilder = new GenericRecordBuilder(schema);
+            for (Schema.Field field: schema.getFields()) {
+                Schema subschema = field.schema();
 
                 //Union data types always have 2 types, first is null and second is the needed type.
 
-                if(schema.getType() == Schema.Type.UNION){
+                if(subschema.getType() == Schema.Type.UNION){
                     if(record.getString(field.name()) == null){
-                        schema = schema.getTypes().get(0);
+                        subschema = subschema.getTypes().get(0);
                     }
                     else{
-                        schema = schema.getTypes().get(1);
+                        subschema = subschema.getTypes().get(1);
                     }
                 }
-                switch(schema.getType()){
+                switch(subschema.getType()){
                     case LONG:
                         if (field.name().equals("time")){
                             genericRecordBuilder = genericRecordBuilder.set("time", timeToMillisecondsConverter(record.getString(time)));
@@ -271,13 +309,46 @@ public class Ldb4RdbConverter {
 
                         //Union data types always have 2 types, first is null and second is the needed type.
                 }
-        }
+            }
             GenericData.Record towrite = genericRecordBuilder.build();
             toWriteList.add(towrite);
         }
-        // CSV -> JSON -> Schema -> Record -> Parquetfile
-        //List<Schema.Field> testlist = toWriteList.get(1).getSchema().getFields();
+        return toWriteList;
+    }
 
+    private void run() {
+
+        List<Record> allRecords = parseCSV();
+        Record headers = allRecords.get(0);
+        Record examplerow = allRecords.get(1);
+        String[] headerarray = headers.getValues();
+        String[] examplearray = examplerow.getValues();
+        JSONObject mainjson = createJSONFromCSVRecords(headerarray, examplearray);
+
+        // Take the first data sample and the header row from the data and create a JSON object based on those that is then converted into a schema.
+
+
+
+        // Remove the headerrow, because it doesn't contain location data.
+        allRecords.remove(0);
+
+        // Create the shcema from json object.
+
+        Schema avroSchema = new Schema.Parser().parse(mainjson.toString());
+
+        // Create the attributeTranslations file for the GUI based on chosen attributes and types.
+
+        writeAttributeFile(avroSchema, "attributeTranslation.json");
+
+        List<GenericData.Record> toWrite = convertToParquetRecords(avroSchema, allRecords);
+
+
+        /* CSV -> JSON -> Schema -> Record -> Parquetfile
+                            |
+                            |
+                  attributeTranslation.json
+
+        */
 
         int blockSize = 1024;
         int pageSize = 65535;
@@ -292,7 +363,7 @@ public class Ldb4RdbConverter {
                         blockSize,
                         pageSize)
         ){
-            for(GenericData.Record obj : toWriteList){
+            for(GenericData.Record obj : toWrite){
                 parquetWriter.write(obj);
             }
         }catch(java.io.IOException e){
@@ -302,4 +373,3 @@ public class Ldb4RdbConverter {
 
     }
 }
-
