@@ -10,11 +10,11 @@ import org.apache.avro.specific.SpecificData;
 @SuppressWarnings("all")
 @org.apache.avro.specific.AvroGenerated
 public class LocationRecord extends org.apache.avro.specific.SpecificRecordBase implements org.apache.avro.specific.SpecificRecord {
-  private static final long serialVersionUID = -6209236246105538024L;
-  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"LocationRecord\",\"namespace\":\"com.demograft.ldb4rdbconverter.generated\",\"fields\":[{\"name\":\"longitude\",\"type\":\"double\"},{\"name\":\"latitude\",\"type\":\"double\"},{\"name\":\"time\",\"type\":\"long\"},{\"name\":\"ueBrandName\",\"type\":\"string\"},{\"name\":\"networkType\",\"type\":\"string\"}]}");
+  private static final long serialVersionUID = -1064671562205682447L;
+  public static final org.apache.avro.Schema SCHEMA$ = new org.apache.avro.Schema.Parser().parse("{\"type\":\"record\",\"name\":\"LocationRecord\",\"namespace\":\"com.demograft.ldb4rdbconverter.generated\",\"fields\":[{\"name\":\"lon\",\"type\":\"double\"},{\"name\":\"lat\",\"type\":\"double\"},{\"name\":\"time\",\"type\":\"long\"},{\"name\":\"ueBrandName\",\"type\":\"string\"},{\"name\":\"networkType\",\"type\":\"string\"}]}");
   public static org.apache.avro.Schema getClassSchema() { return SCHEMA$; }
-  @Deprecated public double longitude;
-  @Deprecated public double latitude;
+  @Deprecated public double lon;
+  @Deprecated public double lat;
   @Deprecated public long time;
   @Deprecated public java.lang.CharSequence ueBrandName;
   @Deprecated public java.lang.CharSequence networkType;
@@ -28,15 +28,15 @@ public class LocationRecord extends org.apache.avro.specific.SpecificRecordBase 
 
   /**
    * All-args constructor.
-   * @param longitude The new value for longitude
-   * @param latitude The new value for latitude
+   * @param lon The new value for lon
+   * @param lat The new value for lat
    * @param time The new value for time
    * @param ueBrandName The new value for ueBrandName
    * @param networkType The new value for networkType
    */
-  public LocationRecord(java.lang.Double longitude, java.lang.Double latitude, java.lang.Long time, java.lang.CharSequence ueBrandName, java.lang.CharSequence networkType) {
-    this.longitude = longitude;
-    this.latitude = latitude;
+  public LocationRecord(java.lang.Double lon, java.lang.Double lat, java.lang.Long time, java.lang.CharSequence ueBrandName, java.lang.CharSequence networkType) {
+    this.lon = lon;
+    this.lat = lat;
     this.time = time;
     this.ueBrandName = ueBrandName;
     this.networkType = networkType;
@@ -46,8 +46,8 @@ public class LocationRecord extends org.apache.avro.specific.SpecificRecordBase 
   // Used by DatumWriter.  Applications should not call.
   public java.lang.Object get(int field$) {
     switch (field$) {
-    case 0: return longitude;
-    case 1: return latitude;
+    case 0: return lon;
+    case 1: return lat;
     case 2: return time;
     case 3: return ueBrandName;
     case 4: return networkType;
@@ -59,8 +59,8 @@ public class LocationRecord extends org.apache.avro.specific.SpecificRecordBase 
   @SuppressWarnings(value="unchecked")
   public void put(int field$, java.lang.Object value$) {
     switch (field$) {
-    case 0: longitude = (java.lang.Double)value$; break;
-    case 1: latitude = (java.lang.Double)value$; break;
+    case 0: lon = (java.lang.Double)value$; break;
+    case 1: lat = (java.lang.Double)value$; break;
     case 2: time = (java.lang.Long)value$; break;
     case 3: ueBrandName = (java.lang.CharSequence)value$; break;
     case 4: networkType = (java.lang.CharSequence)value$; break;
@@ -69,35 +69,35 @@ public class LocationRecord extends org.apache.avro.specific.SpecificRecordBase 
   }
 
   /**
-   * Gets the value of the 'longitude' field.
-   * @return The value of the 'longitude' field.
+   * Gets the value of the 'lon' field.
+   * @return The value of the 'lon' field.
    */
-  public java.lang.Double getLongitude() {
-    return longitude;
+  public java.lang.Double getLon() {
+    return lon;
   }
 
   /**
-   * Sets the value of the 'longitude' field.
+   * Sets the value of the 'lon' field.
    * @param value the value to set.
    */
-  public void setLongitude(java.lang.Double value) {
-    this.longitude = value;
+  public void setLon(java.lang.Double value) {
+    this.lon = value;
   }
 
   /**
-   * Gets the value of the 'latitude' field.
-   * @return The value of the 'latitude' field.
+   * Gets the value of the 'lat' field.
+   * @return The value of the 'lat' field.
    */
-  public java.lang.Double getLatitude() {
-    return latitude;
+  public java.lang.Double getLat() {
+    return lat;
   }
 
   /**
-   * Sets the value of the 'latitude' field.
+   * Sets the value of the 'lat' field.
    * @param value the value to set.
    */
-  public void setLatitude(java.lang.Double value) {
-    this.latitude = value;
+  public void setLat(java.lang.Double value) {
+    this.lat = value;
   }
 
   /**
@@ -180,8 +180,8 @@ public class LocationRecord extends org.apache.avro.specific.SpecificRecordBase 
   public static class Builder extends org.apache.avro.specific.SpecificRecordBuilderBase<LocationRecord>
     implements org.apache.avro.data.RecordBuilder<LocationRecord> {
 
-    private double longitude;
-    private double latitude;
+    private double lon;
+    private double lat;
     private long time;
     private java.lang.CharSequence ueBrandName;
     private java.lang.CharSequence networkType;
@@ -197,12 +197,12 @@ public class LocationRecord extends org.apache.avro.specific.SpecificRecordBase 
      */
     private Builder(com.demograft.ldb4rdbconverter.generated.LocationRecord.Builder other) {
       super(other);
-      if (isValidValue(fields()[0], other.longitude)) {
-        this.longitude = data().deepCopy(fields()[0].schema(), other.longitude);
+      if (isValidValue(fields()[0], other.lon)) {
+        this.lon = data().deepCopy(fields()[0].schema(), other.lon);
         fieldSetFlags()[0] = true;
       }
-      if (isValidValue(fields()[1], other.latitude)) {
-        this.latitude = data().deepCopy(fields()[1].schema(), other.latitude);
+      if (isValidValue(fields()[1], other.lat)) {
+        this.lat = data().deepCopy(fields()[1].schema(), other.lat);
         fieldSetFlags()[1] = true;
       }
       if (isValidValue(fields()[2], other.time)) {
@@ -225,12 +225,12 @@ public class LocationRecord extends org.apache.avro.specific.SpecificRecordBase 
      */
     private Builder(com.demograft.ldb4rdbconverter.generated.LocationRecord other) {
             super(SCHEMA$);
-      if (isValidValue(fields()[0], other.longitude)) {
-        this.longitude = data().deepCopy(fields()[0].schema(), other.longitude);
+      if (isValidValue(fields()[0], other.lon)) {
+        this.lon = data().deepCopy(fields()[0].schema(), other.lon);
         fieldSetFlags()[0] = true;
       }
-      if (isValidValue(fields()[1], other.latitude)) {
-        this.latitude = data().deepCopy(fields()[1].schema(), other.latitude);
+      if (isValidValue(fields()[1], other.lat)) {
+        this.lat = data().deepCopy(fields()[1].schema(), other.lat);
         fieldSetFlags()[1] = true;
       }
       if (isValidValue(fields()[2], other.time)) {
@@ -248,77 +248,77 @@ public class LocationRecord extends org.apache.avro.specific.SpecificRecordBase 
     }
 
     /**
-      * Gets the value of the 'longitude' field.
+      * Gets the value of the 'lon' field.
       * @return The value.
       */
-    public java.lang.Double getLongitude() {
-      return longitude;
+    public java.lang.Double getLon() {
+      return lon;
     }
 
     /**
-      * Sets the value of the 'longitude' field.
-      * @param value The value of 'longitude'.
+      * Sets the value of the 'lon' field.
+      * @param value The value of 'lon'.
       * @return This builder.
       */
-    public com.demograft.ldb4rdbconverter.generated.LocationRecord.Builder setLongitude(double value) {
+    public com.demograft.ldb4rdbconverter.generated.LocationRecord.Builder setLon(double value) {
       validate(fields()[0], value);
-      this.longitude = value;
+      this.lon = value;
       fieldSetFlags()[0] = true;
       return this;
     }
 
     /**
-      * Checks whether the 'longitude' field has been set.
-      * @return True if the 'longitude' field has been set, false otherwise.
+      * Checks whether the 'lon' field has been set.
+      * @return True if the 'lon' field has been set, false otherwise.
       */
-    public boolean hasLongitude() {
+    public boolean hasLon() {
       return fieldSetFlags()[0];
     }
 
 
     /**
-      * Clears the value of the 'longitude' field.
+      * Clears the value of the 'lon' field.
       * @return This builder.
       */
-    public com.demograft.ldb4rdbconverter.generated.LocationRecord.Builder clearLongitude() {
+    public com.demograft.ldb4rdbconverter.generated.LocationRecord.Builder clearLon() {
       fieldSetFlags()[0] = false;
       return this;
     }
 
     /**
-      * Gets the value of the 'latitude' field.
+      * Gets the value of the 'lat' field.
       * @return The value.
       */
-    public java.lang.Double getLatitude() {
-      return latitude;
+    public java.lang.Double getLat() {
+      return lat;
     }
 
     /**
-      * Sets the value of the 'latitude' field.
-      * @param value The value of 'latitude'.
+      * Sets the value of the 'lat' field.
+      * @param value The value of 'lat'.
       * @return This builder.
       */
-    public com.demograft.ldb4rdbconverter.generated.LocationRecord.Builder setLatitude(double value) {
+    public com.demograft.ldb4rdbconverter.generated.LocationRecord.Builder setLat(double value) {
       validate(fields()[1], value);
-      this.latitude = value;
+      this.lat = value;
       fieldSetFlags()[1] = true;
       return this;
     }
 
     /**
-      * Checks whether the 'latitude' field has been set.
-      * @return True if the 'latitude' field has been set, false otherwise.
+      * Checks whether the 'lat' field has been set.
+      * @return True if the 'lat' field has been set, false otherwise.
       */
-    public boolean hasLatitude() {
+    public boolean hasLat() {
       return fieldSetFlags()[1];
     }
 
 
     /**
-      * Clears the value of the 'latitude' field.
+      * Clears the value of the 'lat' field.
       * @return This builder.
       */
-    public com.demograft.ldb4rdbconverter.generated.LocationRecord.Builder clearLatitude() {
+    public com.demograft.ldb4rdbconverter.generated.LocationRecord.Builder clearLat() {
       fieldSetFlags()[1] = false;
       return this;
     }
@@ -443,8 +443,8 @@ public class LocationRecord extends org.apache.avro.specific.SpecificRecordBase 
     public LocationRecord build() {
       try {
         LocationRecord record = new LocationRecord();
-        record.longitude = fieldSetFlags()[0] ? this.longitude : (java.lang.Double) defaultValue(fields()[0]);
-        record.latitude = fieldSetFlags()[1] ? this.latitude : (java.lang.Double) defaultValue(fields()[1]);
+        record.lon = fieldSetFlags()[0] ? this.lon : (java.lang.Double) defaultValue(fields()[0]);
+        record.lat = fieldSetFlags()[1] ? this.lat : (java.lang.Double) defaultValue(fields()[1]);
         record.time = fieldSetFlags()[2] ? this.time : (java.lang.Long) defaultValue(fields()[2]);
         record.ueBrandName = fieldSetFlags()[3] ? this.ueBrandName : (java.lang.CharSequence) defaultValue(fields()[3]);
         record.networkType = fieldSetFlags()[4] ? this.networkType : (java.lang.CharSequence) defaultValue(fields()[4]);

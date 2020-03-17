@@ -56,6 +56,7 @@ public class Ldb4RdbConverter {
     @Option(name = "--time", required = false, usage = "Redefine the time row")
     private String time = "time";
 
+    private DateTimeFormatter timeFormatter;
 
 
     public static void main(String[] args) {
@@ -70,42 +71,49 @@ public class Ldb4RdbConverter {
         converter.run();
     }
 
-    static long timeToMillisecondsConverter(String time) throws DateTimeParseException {
+    static DateTimeFormatter identifyTimeFormat(String time){
         try {
             DateTimeFormatter formatter
                     = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS xx");
+            ZonedDateTime date = ZonedDateTime.parse(time, formatter);
+            return formatter;
+        }
+        catch(DateTimeParseException e) {
+        }
+        try {
+            DateTimeFormatter formatter
+                    = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+
+            LocalDateTime localdate = LocalDateTime.parse(time, formatter);
+            ZonedDateTime date = ZonedDateTime.of(localdate, ZoneId.ofOffset("", ZoneOffset.of("+0000")));
+            return formatter;
+        }
+        catch(DateTimeParseException e1) {
+        }
+        try {
+            DateTimeFormatter formatter
+                    = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
             ZonedDateTime date = ZonedDateTime.parse(time, formatter);
-            return date.toInstant().toEpochMilli();
+            return formatter;
         }
-        catch(DateTimeParseException e){
-            try {
-                DateTimeFormatter formatter
-                        = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-
-                LocalDateTime localdate = LocalDateTime.parse(time, formatter);
-                ZonedDateTime date = ZonedDateTime.of(localdate, ZoneId.ofOffset("", ZoneOffset.of("+0000")));
-                return date.toInstant().toEpochMilli();
-            }
-            catch(DateTimeParseException e1){
-                try {
-                    DateTimeFormatter formatter
-                            = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-
-                    ZonedDateTime date = ZonedDateTime.parse(time, formatter);
-                    return date.toInstant().toEpochMilli();
-                }
-                catch(DateTimeParseException e2){
-
-                    DateTimeFormatter formatter
-                            = DateTimeFormatter.ISO_ZONED_DATE_TIME;
-
-                    ZonedDateTime date = ZonedDateTime.parse(time, formatter);
-                    return date.toInstant().toEpochMilli();
-
-                }
-            }
+        catch(DateTimeParseException e2) {
         }
+        try{
+            DateTimeFormatter formatter
+                    = DateTimeFormatter.ISO_ZONED_DATE_TIME;
+
+            ZonedDateTime date = ZonedDateTime.parse(time, formatter);
+            return formatter;
+        }
+        catch(DateTimeParseException e3){
+            throw new RuntimeException("Error. Couldn't get DateTime parser from first example row. Does not match any common date time formats.");
+        }
+    }
+
+    static long timeToMillisecondsConverter(String time, DateTimeFormatter format) throws DateTimeParseException {
+        ZonedDateTime date = ZonedDateTime.parse(time, format);
+        return date.toInstant().toEpochMilli();
     }
 
     // Takes the CSV file/folder given by the command line and parses all of the records in it.
@@ -167,7 +175,7 @@ public class Ldb4RdbConverter {
             } else {
 
                 try {
-                    long data = timeToMillisecondsConverter(example);
+                    long data = timeToMillisecondsConverter(example, timeFormatter);
                     jo.put("name", headername);
                     JSONArray typelist = new JSONArray();
                     typelist.add("null");
@@ -279,14 +287,14 @@ public class Ldb4RdbConverter {
                 switch(subschema.getType()){
                     case LONG:
                         if (field.name().equals("time")){
-                            genericRecordBuilder = genericRecordBuilder.set("time", timeToMillisecondsConverter(record.getString(time)));
+                            genericRecordBuilder = genericRecordBuilder.set("time", timeToMillisecondsConverter(record.getString(time), timeFormatter));
                         }
                         else {
                             try {
                                 genericRecordBuilder = genericRecordBuilder.set(field, record.getLong(field.name()));
                             } catch (NumberFormatException e) {
                                 genericRecordBuilder = genericRecordBuilder.set(field,
-                                        timeToMillisecondsConverter(record.getString(field.name())));
+                                        timeToMillisecondsConverter(record.getString(field.name()), timeFormatter));
                             }
                         }
                         break;
@@ -323,8 +331,8 @@ public class Ldb4RdbConverter {
         Record examplerow = allRecords.get(1);
         String[] headerarray = headers.getValues();
         String[] examplearray = examplerow.getValues();
+        timeFormatter = identifyTimeFormat(examplerow.getString(time));
         JSONObject mainjson = createJSONFromCSVRecords(headerarray, examplearray);
-
         // Take the first data sample and the header row from the data and create a JSON object based on those that is then converted into a schema.
 
 
