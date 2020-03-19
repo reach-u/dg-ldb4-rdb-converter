@@ -53,9 +53,13 @@ public class Ldb4RdbConverter {
     @Option(name = "--time", required = false, usage = "Redefine the time row")
     private String time = "time";
 
+    private int files = 0;
+
     private DateTimeFormatter timeFormatter;
 
     private StringBuilder statistics = new StringBuilder();
+
+    private HashMap<String, Integer> IdHash = new HashMap<>();
 
     public static void main(String[] args) {
         Ldb4RdbConverter converter = new Ldb4RdbConverter();
@@ -120,7 +124,6 @@ public class Ldb4RdbConverter {
         settings.getFormat().setLineSeparator("\n");
         CsvParser parser = new CsvParser(settings);
         List<Record> parsedRecords = new ArrayList<>();
-        int files = 0;
         if (inputFile.getName().endsWith(".csv")) {
             parsedRecords = parser.parseAllRecords(inputFile);
         } else if (inputFile.isDirectory()) {
@@ -131,7 +134,7 @@ public class Ldb4RdbConverter {
                         files += 1;
                         List<Record> newRecords = parser.parseAllRecords(file);
                         if(files > 1){
-                            parsedRecords.remove(0);
+                            newRecords.remove(0);
                         }
                         parsedRecords.addAll(newRecords);
                     }
@@ -171,46 +174,35 @@ public class Ldb4RdbConverter {
                 jo.put("type", "long");
                 list.add(jo);
             } else {
-
                 try {
-                    long data = timeToMillisecondsConverter(example, timeFormatter);
+                    long data = Long.parseLong(example);
                     jo.put("name", headername);
                     JSONArray typelist = new JSONArray();
                     typelist.add("null");
                     typelist.add("long");
                     jo.put("type", typelist);
                     list.add(jo);
-                } catch (DateTimeParseException e) {
-                    {
-                        try {
-                            long data = Long.parseLong(example);
-                            jo.put("name", headername);
-                            JSONArray typelist = new JSONArray();
-                            typelist.add("null");
-                            typelist.add("long");
-                            jo.put("type", typelist);
-                            list.add(jo);
-                        } catch (NumberFormatException e2) {
-                            try {
-                                double data = Double.parseDouble(example);
-                                JSONArray typelist = new JSONArray();
-                                jo.put("name", headername);
-                                typelist.add("null");
-                                typelist.add("double");
-                                jo.put("type", typelist);
-                                list.add(jo);
-                            } catch (NumberFormatException e3) {
-                                JSONArray typelist = new JSONArray();
-                                jo.put("name", headername);
-                                typelist.add("null");
-                                typelist.add("string");
-                                jo.put("type", typelist);
-                                list.add(jo);
-                            }
-                        }
+                }
+                catch (NumberFormatException e2) {
+                    try {
+                        double data = Double.parseDouble(example);
+                        JSONArray typelist = new JSONArray();
+                        jo.put("name", headername);
+                        typelist.add("null");
+                        typelist.add("double");
+                        jo.put("type", typelist);
+                        list.add(jo);
+                    } catch (NumberFormatException e3) {
+                        JSONArray typelist = new JSONArray();
+                        jo.put("name", headername);
+                        typelist.add("null");
+                        typelist.add("string");
+                        jo.put("type", typelist);
+                        list.add(jo);
                     }
-                } catch (NullPointerException e) {
-                    // If in the example data line the value indicated is null, that property is ignored and not used to construct the schema.
+                    catch (NullPointerException e) {
+                        // If in the example data line the value indicated is null, that property is ignored and not used to construct the schema.
+                    }
                 }
             }
         }
@@ -268,7 +260,7 @@ public class Ldb4RdbConverter {
         List<GenericData.Record> toWriteList = new ArrayList<>();
         HashMap<String, Integer[]> statsTable = new HashMap<>();
         for (Schema.Field field: schema.getFields()){
-            statsTable.put(field.name(), new Integer[]{0,0});
+            statsTable.put(field.name(), new Integer[]{0,0,0});
         }
         statistics.append("Parquet file generation successful. \n \n \n General statistics: \n  Found a total of " + csvRecords.size() + " records. ");
         for(Record record: csvRecords){
@@ -296,88 +288,109 @@ public class Ldb4RdbConverter {
                                     stat[0] += 1;
                                     statsTable.put("time", stat);
                                 }
-                                catch(NullPointerException|DateTimeParseException e){
+                                catch(DateTimeParseException e){
                                     Integer[] stat2 = statsTable.get("time");
+                                    stat2[0] += 1;
                                     stat2[1] += 1;
+                                    statsTable.put("time", stat2);
+                                    malformed = true;
+                                    break;
+                                }
+                                catch(NullPointerException e2) {
+                                    Integer[] stat2 = statsTable.get("time");
+                                    stat2[2] += 1;
                                     statsTable.put("time", stat2);
                                     malformed = true;
                                     break;
                                 }
                         }
                         else {
-                             // Could be null, long, or datetime
-                                Integer[] stat = statsTable.get(field.name());
-                                stat[0] += 1;
-                                statsTable.put(field.name(), stat);
-
+                             // Could be null or long
                                 try {
+                                    Integer[] stat = statsTable.get(field.name());
+                                    stat[0] += 1;
+                                    statsTable.put(field.name(), stat);
                                     genericRecordBuilder = genericRecordBuilder.set(field, record.getLong(field.name()));
                                 } catch (NumberFormatException e) {
-                                    try{
-                                        genericRecordBuilder = genericRecordBuilder.set(field, timeToMillisecondsConverter(record.getString(field.name()), timeFormatter));
-                                    }
-                                    catch (DateTimeParseException e1) {
-                                        Integer[] stat2 = statsTable.get(field.name());
-                                        stat2[1] += 1;
-                                        statsTable.put(field.name(), stat2);
-                                    }
+                                    //If long row is not long, record abnormality and set it to null
+                                    Integer[] stat2 = statsTable.get(field.name());
+                                    stat2[1] += 1;
+                                    statsTable.put(field.name(), stat2);
+                                    genericRecordBuilder = genericRecordBuilder.set(field, null);
                             }
                         }
                         break;
                     case DOUBLE:
                         if (field.name().equals("lon")){
                             try {
-                                genericRecordBuilder = genericRecordBuilder.set("lon", record.getDouble(longitude));
+                                if(record.getDouble(longitude) == null){
+                                    Integer[] stat = statsTable.get("lon");
+                                    stat[2] += 1;
+                                    statsTable.put("lon", stat);
+                                    malformed = true;
+                                    break;
+                                }
                                 Integer[] stat = statsTable.get("lon");
                                 stat[0] += 1;
                                 statsTable.put("lon", stat);
+                                genericRecordBuilder = genericRecordBuilder.set("lon", record.getDouble(longitude));
                             }
-                            catch(NullPointerException | NumberFormatException e){
-                                Integer[] stat2 = statsTable.get(longitude);
+                            catch(NumberFormatException e){
+                                Integer[] stat2 = statsTable.get("lon");
+                                stat2[0] += 1;
                                 stat2[1] += 1;
-                                statsTable.put(longitude, stat2);
+                                statsTable.put("lon", stat2);
                                 malformed = true;
                                 break;
                             }
                         }
                         else if(field.name().equals("lat")){
                             try {
-                                genericRecordBuilder = genericRecordBuilder.set("lat", record.getDouble(latitude));
+                                if(record.getDouble(latitude) == null){
+                                    Integer[] stat = statsTable.get("lat");
+                                    stat[2] += 1;
+                                    statsTable.put("lat", stat);
+                                    malformed = true;
+                                    break;
+                                }
                                 Integer[] stat = statsTable.get("lat");
                                 stat[0] += 1;
                                 statsTable.put("lat", stat);
+                                genericRecordBuilder = genericRecordBuilder.set("lat", record.getDouble(latitude));
                             }
-                            catch(NullPointerException | NumberFormatException e){
-                                Integer[] stat2 = statsTable.get(latitude);
+                            catch(NumberFormatException e){
+                                Integer[] stat2 = statsTable.get("lat");
+                                stat2[0] += 1;
                                 stat2[1] += 1;
-                                statsTable.put(latitude, stat2);
+                                statsTable.put("lat", stat2);
                                 malformed = true;
                                 break;
                             }
                         }
                         else {
-                            Integer[] stat = statsTable.get(field.name());
-                            stat[0] += 1;
-                            statsTable.put(field.name(), stat);
                             try {
                                 genericRecordBuilder = genericRecordBuilder.set(field, record.getDouble(field.name()));
+                                Integer[] stat = statsTable.get(field.name());
+                                stat[0] += 1;
+                                statsTable.put(field.name(), stat);
                             }
                             catch(NumberFormatException e){
                                 Integer[] stat2 = statsTable.get(field.name());
                                 stat2[1] += 1;
                                 statsTable.put(field.name(), stat2);
+                                genericRecordBuilder = genericRecordBuilder.set(field, null);
                             }
                         }
                         break;
                     case STRING:
+                        genericRecordBuilder = genericRecordBuilder.set(field, record.getString(field.name()));
                         Integer[] stat = statsTable.get(field.name());
                         stat[0] += 1;
                         statsTable.put(field.name(), stat);
-                        genericRecordBuilder = genericRecordBuilder.set(field, record.getString(field.name()));
                         break;
                     case NULL:
                         Integer[] stat2 = statsTable.get(field.name());
-                        stat2[1] += 1;
+                        stat2[2] += 1;
                         statsTable.put(field.name(), stat2);
                         genericRecordBuilder = genericRecordBuilder.set(field, null);
                         break;
@@ -390,10 +403,10 @@ public class Ldb4RdbConverter {
                 toWriteList.add(towrite);
             }
         }
-        statistics.append(toWriteList.size() + " records parsed into the parquet file. " + (csvRecords.size() - toWriteList.size()) + " records contained malformed lat, lon or time fields.\n");
+        statistics.append(toWriteList.size() + " records from " + files + " files parsed into the parquet file. " + (csvRecords.size() - toWriteList.size()) + " records contained malformed lat, lon or time fields.\n");
         statistics.append("Field statistics in the form of: field name, non-null values, null values :  \n\n");
         for(String key: statsTable.keySet()){
-            statistics.append(key + " , non-null: " + statsTable.get(key)[0] + " , null: " + statsTable.get(key)[1] + "\n");
+            statistics.append(key + " , non-null: " + statsTable.get(key)[0] + " , invalid: " + statsTable.get(key)[1] + " , null: " + statsTable.get(key)[2] + "\n");
         }
         return toWriteList;
     }
