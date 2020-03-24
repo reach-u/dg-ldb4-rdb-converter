@@ -548,7 +548,6 @@ public class Ldb4RdbConverter {
         // Take the first data sample and the header row from the data and create a JSON object based on those that is then converted into a schema.
 
 
-
         // Remove the headerrow, because it doesn't contain location data.
         allRecords.remove(0);
 
