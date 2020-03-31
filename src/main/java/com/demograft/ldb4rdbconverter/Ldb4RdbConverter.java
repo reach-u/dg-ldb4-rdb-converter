@@ -331,7 +331,7 @@ public class Ldb4RdbConverter {
                         "\nIn the current version equals to " + latitude);
                 row.put("group","Geographic Location");
                 row.put("unit","degrees");
-                row.put("attributeId", formattedName);
+                row.put("attributeId", field.name());
                 data.add(row);
             }
             else if(field.name().equals("lon")){
@@ -341,7 +341,7 @@ public class Ldb4RdbConverter {
                         "\\nIn the current version equals to " + longitude);
                 row.put("group","Geographic Location");
                 row.put("unit","degrees");
-                row.put("attributeId", formattedName);
+                row.put("attributeId", field.name());
                 data.add(row);
             } else if(getSchemaType(field.schema()) == Schema.Type.LONG && field.name().equals("time")){
 
@@ -350,7 +350,7 @@ public class Ldb4RdbConverter {
                 row.put("attributeName", "Time");
                 row.put("attributeTooltip", formattedName);
                 row.put("group","Generic");
-                row.put("attributeId", formattedName);
+                row.put("attributeId", field.name());
                 row.put("guiType", "dateTime");
                 data.add(row);
             }
@@ -358,7 +358,7 @@ public class Ldb4RdbConverter {
                 row.put("attributeName", formattedName);
                 row.put("attributeTooltip", formattedName);
                 row.put("group","Generic");
-                row.put("attributeId", formattedName);
+                row.put("attributeId", field.name());
                 row.put("guiType", "dateTime");
                 data.add(row);
             }
@@ -366,7 +366,7 @@ public class Ldb4RdbConverter {
                 row.put("attributeName", formattedName);
                 row.put("attributeTooltip", formattedName);
                 row.put("group","Generic");
-                row.put("attributeId", formattedName);
+                row.put("attributeId", field.name());
                 data.add(row);
             }
         }
