@@ -16,10 +16,7 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
 import java.io.*;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
@@ -40,6 +37,7 @@ public class Ldb4RdbConverter {
     private String longitude = "";
     private String latitude = "";
     private String time = "";
+    private String statsFile = "stats.txt";
 
     private int files = 0;
 
@@ -79,7 +77,20 @@ public class Ldb4RdbConverter {
 
     private Integer totalRecords = 0;
 
+    private Integer timeGated = 0;
+
     private Integer writtenRecords = 0;
+
+    private String start_time = "";
+
+    private String end_time = "";
+
+    private Long startTimeEpoch = 0L;
+
+    private Long endTimeEpoch = 0L;
+
+    private Map<String, Integer> timeData = new TreeMap<>();
+
 
     /* Statistics look as follows: 4 numbers for each row, they indicate:
         1. Number of non-null values
@@ -485,26 +496,35 @@ public class Ldb4RdbConverter {
         if(defaultProp.containsKey("long_columns")) {
             String propInfo = defaultProp.getProperty("long_columns");
             for (String column: propInfo.split(",")) {
-                retain_long_columns.add(column.trim());
+                long_columns.add(column.trim());
             }
         }
         if(defaultProp.containsKey("float_columns")) {
             String propInfo = defaultProp.getProperty("float_columns");
             for (String column: propInfo.split(",")) {
-                retain_long_columns.add(column.trim());
+                float_columns.add(column.trim());
             }
         }
         if(defaultProp.containsKey("double_columns")) {
             String propInfo = defaultProp.getProperty("double_columns");
             for (String column: propInfo.split(",")) {
-                retain_long_columns.add(column.trim());
+                double_columns.add(column.trim());
             }
         }
         if(defaultProp.containsKey("string_columns")) {
             String propInfo = defaultProp.getProperty("string_columns");
             for (String column: propInfo.split(",")) {
-                retain_long_columns.add(column.trim());
+                string_columns.add(column.trim());
             }
+        }
+        if(defaultProp.containsKey("stats-file")) {
+            statsFile = defaultProp.getProperty("stats-file");
+        }
+        if(defaultProp.containsKey("start-time")) {
+            start_time = defaultProp.getProperty("start-time");
+        }
+        if(defaultProp.containsKey("end-time")) {
+            end_time = defaultProp.getProperty("end-time");
         }
     }
 
@@ -519,7 +539,7 @@ public class Ldb4RdbConverter {
     }
 
     private GenericData.Record convertToParquetRecord(Schema schema, Record record){
-            boolean malformed = false;
+            boolean faulty = false;
             GenericRecordBuilder genericRecordBuilder = new GenericRecordBuilder(schema);
             for (Schema.Field field: schema.getFields()) {
                 Schema subschema = field.schema();
@@ -556,6 +576,14 @@ public class Ldb4RdbConverter {
                                 if(long_null_values.contains(timeVal)){
                                     throw new NullPointerException();
                                 }
+                                if(startTimeEpoch != 0L && timeVal < startTimeEpoch){
+                                    timeGated += 1;
+                                    faulty = true;
+                                }
+                                if(endTimeEpoch != 0L && timeVal > endTimeEpoch){
+                                    timeGated += 1;
+                                    faulty = true;
+                                }
                                 genericRecordBuilder = genericRecordBuilder.set("time", timeVal);
                                 Integer[] stat2 = statsTable.get("time");
                                 stat2[COL_NON_NULL_VALUES] += 1;
@@ -565,14 +593,14 @@ public class Ldb4RdbConverter {
                                 stat2[COL_NON_NULL_VALUES] += 1;
                                 stat2[COL_MALFORMED_VALUES] += 1;
                                 statsTable.put("time", stat2);
-                                malformed = true;
+                                faulty = true;
                                 break;
                             }
                             catch(NullPointerException e1){
                                 Integer[] stat = statsTable.get("time");
                                 stat[COL_NULL_VALUES] += 1;
                                 statsTable.put("time", stat);
-                                malformed = true;
+                                faulty = true;
                                 break;
                             }
                         }
@@ -655,14 +683,14 @@ public class Ldb4RdbConverter {
                                 stat2[COL_NON_NULL_VALUES] += 1;
                                 stat2[COL_MALFORMED_VALUES] += 1;
                                 statsTable.put("lon", stat2);
-                                malformed = true;
+                                faulty = true;
                                 break;
                             }
                             catch(NullPointerException e1){
                                 Integer[] stat = statsTable.get("lon");
                                 stat[COL_NULL_VALUES] += 1;
                                 statsTable.put("lon", stat);
-                                malformed = true;
+                                faulty = true;
                                 break;
                             }
                         }
@@ -688,14 +716,14 @@ public class Ldb4RdbConverter {
                                     stat2[COL_NON_NULL_VALUES] += 1;
                                     stat2[COL_MALFORMED_VALUES] += 1;
                                     statsTable.put("lat", stat2);
-                                    malformed = true;
+                                    faulty = true;
                                     break;
                                 }
                                 catch(NullPointerException e1){
                                     Integer[] stat = statsTable.get("lat");
                                     stat[COL_NULL_VALUES] += 1;
                                     statsTable.put("lat", stat);
-                                    malformed = true;
+                                    faulty = true;
                                     break;
                                 }
                         }
@@ -784,9 +812,19 @@ public class Ldb4RdbConverter {
                         //Union data types always have 2 types, first is null and the second is the needed type.
                 }
             }
-            if(!malformed) {
+            if(!faulty) {
                 totalRecords += 1;
                 writtenRecords += 1;
+                ZonedDateTime date = ZonedDateTime.parse(record.getString(time), timeFormatter);
+                LocalDate localdate = date.toLocalDate();
+                if(timeData.containsKey(localdate.toString())){
+                    Integer count = timeData.get(localdate.toString());
+                    count += 1;
+                    timeData.put(localdate.toString(), count);
+                }
+                else{
+                    timeData.put(localdate.toString(), 1);
+                }
                 return genericRecordBuilder.build();
             }
             else{
@@ -797,7 +835,8 @@ public class Ldb4RdbConverter {
 
     private void writeStatsFile(){
         statistics.append("Parquet file generation successful. \n \n \nGeneral statistics: \nFound a total of " + totalRecords + " records. ");
-        statistics.append(writtenRecords + " records from " + files + " files parsed into the parquet file. " + (totalRecords - writtenRecords) + " records contained malformed lat, lon or time fields.\n");
+        statistics.append(writtenRecords + " records from " + files + " files parsed into the parquet file. " + (totalRecords - writtenRecords) + " records contained malformed lat, lon or time fields. " + timeGated + " records discarded due to time restrictions.\n");
+        statistics.append("Time restrictions set:    \nStart time:  " + start_time + "    \nEnd time:  " + end_time + ". \n\n");
         statistics.append("Field statistics in the form of: field name, non-null values, null values :  \n\n");
         for(String key: statsTable.keySet()){
             statistics.append(key + " , non-null: " + statsTable.get(key)[0] + " , invalid: " + statsTable.get(key)[1] + " , null: " + statsTable.get(key)[2] + " , zero-values: " + statsTable.get(key)[3] + " , type: " + typeToString(typeTable.get(key)) +  "\n");
@@ -805,7 +844,11 @@ public class Ldb4RdbConverter {
                 statistics.append("     Min: " + minMaxTable.get(key)[0] + "       Max: " + minMaxTable.get(key)[1] + "\n");
             }
         }
-        try(FileWriter fw = new FileWriter("stats.txt")){
+        statistics.append("Time data.\nDate followed by the number of samples found from that date\n\n\n");
+        for(String key: timeData.keySet()){
+            statistics.append(key + "   -   " + timeData.get(key) + "\n");
+        }
+        try(FileWriter fw = new FileWriter(statsFile)){
             fw.write(statistics.toString());
         }
         catch(IOException e){
@@ -840,6 +883,7 @@ public class Ldb4RdbConverter {
         settings.getFormat().setLineSeparator("\n");
         CsvParser parser = new CsvParser(settings);
 
+
         File exampleFile = csvFiles.get(0);
         parser.beginParsing(exampleFile);
         String[] headerArray = parser.parseNextRecord().getValues();
@@ -867,7 +911,12 @@ public class Ldb4RdbConverter {
                 minMaxTable.put(field.name(), new Float[]{Float.MAX_VALUE, Float.MIN_VALUE});
             }
         }
-
+        if(!start_time.equals("")) {
+            startTimeEpoch = timeToMillisecondsConverter(start_time, timeFormatter);
+        }
+        if(!end_time.equals("")){
+            endTimeEpoch = timeToMillisecondsConverter(end_time, timeFormatter);
+        }
 
         /* CSV -> JSON -> Schema -> Record -> Parquetfile
                             |
