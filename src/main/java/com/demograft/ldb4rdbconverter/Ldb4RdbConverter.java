@@ -71,6 +71,29 @@ public class Ldb4RdbConverter {
 
     private List<HashMap<String, Long>> hashTables = new ArrayList<>();
 
+    private HashMap<String, Integer[]> statsTable = new HashMap<>();
+
+    private HashMap<String, Float[]> minMaxTable = new HashMap<>();
+
+    private HashMap<String, Schema.Type> typeTable = new HashMap<>();
+
+    private Integer totalRecords = 0;
+
+    private Integer writtenRecords = 0;
+
+    /* Statistics look as follows: 4 numbers for each row, they indicate:
+        1. Number of non-null values
+        2. Number of malformed values
+        3. Number of NULL values
+        4. Number of zero-values (0.0 for float, double; 0 for long)
+
+        Minmax values table as follows:
+
+        1. Min value of this column
+        2. Max value of this column
+
+       */
+
     private final int COL_NON_NULL_VALUES = 0;
 
     private final int COL_MALFORMED_VALUES = 1;
@@ -171,7 +194,7 @@ public class Ldb4RdbConverter {
                 try {
                     if (file.getName().endsWith(".csv")) {
                         files += 1;
-                        List<Record> newRecords = parser.parseAllRecords();
+                        List<Record> newRecords = parser.parseAllRecords(file);
                         if(files > 1){
                             newRecords.remove(0);
                         }
@@ -495,33 +518,7 @@ public class Ldb4RdbConverter {
         return hashNumber;
     }
 
-    private List<GenericData.Record> convertToParquetRecords(Schema schema, List<Record> csvRecords){
-        List<GenericData.Record> toWriteList = new ArrayList<>();
-        HashMap<String, Integer[]> statsTable = new HashMap<>();
-        HashMap<String, Float[]> minMaxTable = new HashMap<>();
-        HashMap<String, Schema.Type> typeTable = new HashMap<>();
-
-        /* Statistics look as follows: 4 numbers for each row, they indicate:
-        1. Number of non-null values
-        2. Number of malformed values
-        3. Number of NULL values
-        4. Number of zero-values (0.0 for float, double; 0 for long)
-
-        Minmax values table as follows:
-
-        1. Min value of this column
-        2. Max value of this column
-
-       */
-        for (Schema.Field field: schema.getFields()){
-            statsTable.put(field.name(), new Integer[]{0,0,0,0});
-            typeTable.put(field.name(), getSchemaType(field.schema()));
-            if (getSchemaType(field.schema()) == Schema.Type.FLOAT){
-                minMaxTable.put(field.name(), new Float[]{Float.MAX_VALUE, Float.MIN_VALUE});
-            }
-        }
-        statistics.append("Parquet file generation successful. \n \n \nGeneral statistics: \nFound a total of " + csvRecords.size() + " records. ");
-        for(Record record: csvRecords){
+    private GenericData.Record convertToParquetRecord(Schema schema, Record record){
             boolean malformed = false;
             GenericRecordBuilder genericRecordBuilder = new GenericRecordBuilder(schema);
             for (Schema.Field field: schema.getFields()) {
@@ -788,11 +785,19 @@ public class Ldb4RdbConverter {
                 }
             }
             if(!malformed) {
-                GenericData.Record towrite = genericRecordBuilder.build();
-                toWriteList.add(towrite);
+                totalRecords += 1;
+                writtenRecords += 1;
+                return genericRecordBuilder.build();
             }
-        }
-        statistics.append(toWriteList.size() + " records from " + files + " files parsed into the parquet file. " + (csvRecords.size() - toWriteList.size()) + " records contained malformed lat, lon or time fields.\n");
+            else{
+                totalRecords += 1;
+                return null;
+            }
+    }
+
+    private void writeStatsFile(){
+        statistics.append("Parquet file generation successful. \n \n \nGeneral statistics: \nFound a total of " + totalRecords + " records. ");
+        statistics.append(writtenRecords + " records from " + files + " files parsed into the parquet file. " + (totalRecords - writtenRecords) + " records contained malformed lat, lon or time fields.\n");
         statistics.append("Field statistics in the form of: field name, non-null values, null values :  \n\n");
         for(String key: statsTable.keySet()){
             statistics.append(key + " , non-null: " + statsTable.get(key)[0] + " , invalid: " + statsTable.get(key)[1] + " , null: " + statsTable.get(key)[2] + " , zero-values: " + statsTable.get(key)[3] + " , type: " + typeToString(typeTable.get(key)) +  "\n");
@@ -800,7 +805,12 @@ public class Ldb4RdbConverter {
                 statistics.append("     Min: " + minMaxTable.get(key)[0] + "       Max: " + minMaxTable.get(key)[1] + "\n");
             }
         }
-        return toWriteList;
+        try(FileWriter fw = new FileWriter("stats.txt")){
+            fw.write(statistics.toString());
+        }
+        catch(IOException e){
+            System.out.println("Error writing the statistics file. Error message: " + e.getMessage());
+        }
     }
 
     private void run() {
@@ -809,34 +819,54 @@ public class Ldb4RdbConverter {
             throw new RuntimeException("Configuration file not set, cannot proceed.");
         }
         readConfigFile();
+        List<File> csvFiles = new ArrayList<>();
+
+        if(!inputFile.isDirectory()){
+            csvFiles.add(inputFile);
+        }
+        else {
+            try {
+                for (File file : inputFile.listFiles()) {
+                    if (file.getName().endsWith(".csv")) {
+                        csvFiles.add(file);
+                    }
+                }
+            }
+            catch(NullPointerException e) {
+                System.out.println("Error finding the file/directory, please recheck the file name and make sure this file or directory exists.");
+            }
+        }
+        CsvParserSettings settings = new CsvParserSettings();
+        settings.getFormat().setLineSeparator("\n");
+        CsvParser parser = new CsvParser(settings);
+
+        File exampleFile = csvFiles.get(0);
+        parser.beginParsing(exampleFile);
+        String[] headerArray = parser.parseNextRecord().getValues();
+        Record exampleRow = parser.parseNextRecord();
+        String[] exampleArray = exampleRow.getValues();
+        parser.stopParsing();
+        timeFormatter = identifyTimeFormat(exampleRow.getString(time));
+        JSONObject mainjson = createJSONFromCSVRecords(headerArray, exampleArray);
         hashMapCounters = new Long[hashColumns.size()];
-        for (String header: hashColumns){
+        for (int i = 0; i < hashColumns.size(); i++){
             HashMap<String, Long> toAdd = new HashMap<>();
             hashTables.add(toAdd);
         }
+
+
         Arrays.fill(hashMapCounters, 0L);
-        List<Record> allRecords = parseCSV();
-        Record headers = allRecords.get(0);
-        Record examplerow = allRecords.get(1);
-        String[] headerarray = headers.getValues();
-        String[] examplearray = examplerow.getValues();
-        timeFormatter = identifyTimeFormat(examplerow.getString(time));
-        JSONObject mainjson = createJSONFromCSVRecords(headerarray, examplearray);
-        // Take the first data sample and the header row from the data and create a JSON object based on those that is then converted into a schema.
-
-
-        // Remove the headerrow, because it doesn't contain location data.
-        allRecords.remove(0);
-
-        // Create the shcema from json object.
 
         Schema avroSchema = new Schema.Parser().parse(mainjson.toString());
-
-        // Create the attributeTranslations file for the GUI based on chosen attributes and types.
-
         writeAttributeFile(avroSchema, "attributeTranslation.json");
 
-        List<GenericData.Record> toWrite = convertToParquetRecords(avroSchema, allRecords);
+        for (Schema.Field field: avroSchema.getFields()){
+            statsTable.put(field.name(), new Integer[]{0,0,0,0});
+            typeTable.put(field.name(), getSchemaType(field.schema()));
+            if (getSchemaType(field.schema()) == Schema.Type.FLOAT){
+                minMaxTable.put(field.name(), new Float[]{Float.MAX_VALUE, Float.MIN_VALUE});
+            }
+        }
 
 
         /* CSV -> JSON -> Schema -> Record -> Parquetfile
@@ -860,20 +890,30 @@ public class Ldb4RdbConverter {
                         .withPageSize(pageSize)
                         .build()
         ){
-            for(GenericData.Record obj : toWrite){
-                parquetWriter.write(obj);
+            for(File file: csvFiles) {
+                parser.beginParsing(file);
+                // Remove the header row
+                Record record = parser.parseNextRecord();
+                try{
+                    while((record = parser.parseNextRecord()) != null) {
+                        GenericData.Record toWrite = convertToParquetRecord(avroSchema, record);
+                        if (toWrite != null) {
+                            parquetWriter.write(toWrite);
+                        }
+                    }
+                }
+                catch(NullPointerException e){
+                    System.out.println("Error. Encountered an empty file or a file with only a header row");
+                }
+                finally{
+                    files += 1;
+                    parser.stopParsing();
+                }
             }
         }catch(java.io.IOException e){
             System.out.println(String.format("Error writing parquet file %s", e.getMessage()));
             e.printStackTrace();
         }
-
-        try(FileWriter fw = new FileWriter("stats.txt")){
-            fw.write(statistics.toString());
-        }
-        catch(IOException e){
-            System.out.println("Error writing the statistics file. Error message: " + e.getMessage());
-        }
-
+        writeStatsFile();
     }
 }
