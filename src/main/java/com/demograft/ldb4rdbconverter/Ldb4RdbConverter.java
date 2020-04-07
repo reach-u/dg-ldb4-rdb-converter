@@ -47,6 +47,11 @@ public class Ldb4RdbConverter {
 
     private StringBuilder statistics = new StringBuilder();
 
+    private final String[] propertyNames = new String[]{"input-file","output-file","stats-file","latitude","longitude","time","start-time","end-time","columns_to_map_long",
+    "long_null_values", "double_null_values", "float_null_values", "long_columns", "float_columns", "double_columns", "string_columns", "time_columns"};
+
+    private final Set<String> propertySet = new HashSet<>(Arrays.asList(propertyNames));
+
     private List<String> hashColumns = new ArrayList<>();
 
     private List<Float> float_null_values = new ArrayList<>();
@@ -55,7 +60,7 @@ public class Ldb4RdbConverter {
 
     private List<Long> long_null_values = new ArrayList<>();
 
-    private List<String> retain_long_columns = new ArrayList<>();
+    private List<String> string_null_values = new ArrayList<>();
 
     private Long[] hashMapCounters;
 
@@ -67,11 +72,28 @@ public class Ldb4RdbConverter {
 
     private List<String> string_columns = new ArrayList<>();
 
+    private List<String> time_columns = new ArrayList<>();
+
     private List<HashMap<String, Long>> hashTables = new ArrayList<>();
 
     private HashMap<String, Integer[]> statsTable = new HashMap<>();
 
     private HashMap<String, Float[]> minMaxTable = new HashMap<>();
+
+    private Integer parquet_size = 0;
+
+    /* Statistics look as follows: 4 numbers for each row, they indicate:
+        1. Number of non-null values
+        2. Number of malformed values
+        3. Number of NULL values
+        4. Number of zero-values (0.0 for float, double; 0 for long)
+
+        Minmax values table as follows:
+
+        1. Min value of this column
+        2. Max value of this column
+
+       */
 
     private HashMap<String, Schema.Type> typeTable = new HashMap<>();
 
@@ -91,19 +113,7 @@ public class Ldb4RdbConverter {
 
     private Map<String, Integer> timeData = new TreeMap<>();
 
-
-    /* Statistics look as follows: 4 numbers for each row, they indicate:
-        1. Number of non-null values
-        2. Number of malformed values
-        3. Number of NULL values
-        4. Number of zero-values (0.0 for float, double; 0 for long)
-
-        Minmax values table as follows:
-
-        1. Min value of this column
-        2. Max value of this column
-
-       */
+    private Map<String, List<String>> rowNulls = new HashMap<>();
 
     private final int COL_NON_NULL_VALUES = 0;
 
@@ -271,7 +281,7 @@ public class Ldb4RdbConverter {
 
             // Predefined rows
 
-            else if(long_columns.contains(headername)){
+            else if(long_columns.contains(headername) || time_columns.contains(headername)){
                 jo.put("name", headername);
                 JSONArray typelist = new JSONArray();
                 typelist.add("null");
@@ -310,18 +320,14 @@ public class Ldb4RdbConverter {
                     typelist.add("null");
                     typelist.add("long");
                     jo.put("type", typelist);
+                    time_columns.add(headername);
                 } catch (DateTimeParseException e1) {
                     try {
                         float data = Float.parseFloat(example);
                         jo.put("name", headername);
                         JSONArray typelist = new JSONArray();
                         typelist.add("null");
-                        if(retain_long_columns.contains(headername)){
-                            typelist.add("long");
-                        }
-                        else{
-                            typelist.add("float");
-                        }
+                        typelist.add("float");
                         jo.put("type", typelist);
                     } catch (NumberFormatException e2) {
                         if(example.equals("")){
@@ -393,7 +399,9 @@ public class Ldb4RdbConverter {
                 row.put("attributeTooltip", formattedName);
                 row.put("group","Generic");
                 row.put("attributeId", field.name());
-                row.put("guiType", "dateTime");
+                if(time_columns.contains(field.name())){
+                    row.put("guiType", "dateTime");
+                }
                 data.add(row);
             }
             else{
@@ -426,6 +434,74 @@ public class Ldb4RdbConverter {
         }
         else{
             return "string";
+        }
+    }
+
+    private Float checkForNullFloat(Float value, String headerName){
+        if(!rowNulls.containsKey(headerName)){
+            return value;
+        }
+        else{
+            List<String> comparables = rowNulls.get(headerName);
+            for(String comparable:comparables){
+                if(Float.parseFloat(comparable) == value){
+                    return null;
+                }
+            }
+        }
+            return value;
+    }
+
+    private Double checkForNullDouble(Double value, String headerName){
+        if(!rowNulls.containsKey(headerName)){
+            return value;
+        }
+        else{
+            List<String> comparables = rowNulls.get(headerName);
+            for(String comparable:comparables){
+                if(Double.parseDouble(comparable) == value){
+                    return null;
+                }
+            }
+        }
+        return value;
+    }
+
+    private Long checkForNullLong(Long value, String headerName){
+        if(!rowNulls.containsKey(headerName)){
+            return value;
+        }
+        else{
+            List<String> comparables = rowNulls.get(headerName);
+            for(String comparable:comparables){
+                if(Long.parseLong(comparable) == value){
+                    return null;
+                }
+            }
+        }
+        return value;
+    }
+
+    private String checkForNullString(String value, String headerName){
+        if(!rowNulls.containsKey(headerName)){
+            return value;
+        }
+        else{
+            List<String> comparables = rowNulls.get(headerName);
+            for(String comparable:comparables){
+                if(comparable.equals(value)){
+                    return null;
+                }
+            }
+        }
+        return value;
+    }
+
+    private void checkValidity(List<String> headers){
+        for(String configValue: rowNulls.keySet()){
+            if(!headers.contains(configValue)){
+                throw new RuntimeException("Error. Configuration file contains a property that isn't a configuration property or a header in the data. .");
+            }
         }
     }
 
@@ -463,10 +539,19 @@ public class Ldb4RdbConverter {
                 columnsToRemove.add(column.trim());
             }
         }
+        if(defaultProp.containsKey("parquet-size")){
+            parquet_size = Integer.parseInt(defaultProp.getProperty("parquet-size"));
+        }
         if(defaultProp.containsKey("columns_to_map_long")) {
             String propInfo = defaultProp.getProperty("columns_to_map_long");
             for (String column: propInfo.split(",")) {
                 hashColumns.add(column.trim());
+            }
+        }
+        if(defaultProp.containsKey("time_columns")) {
+            String propInfo = defaultProp.getProperty("time_columns");
+            for (String column: propInfo.split(",")) {
+                time_columns.add(column.trim());
             }
         }
         if(defaultProp.containsKey("long_null_values")) {
@@ -487,10 +572,10 @@ public class Ldb4RdbConverter {
                 float_null_values.add(Float.parseFloat(column.trim()));
             }
         }
-        if(defaultProp.containsKey("retain_long")) {
-            String propInfo = defaultProp.getProperty("retain_long");
+        if(defaultProp.containsKey("string_null_values")) {
+            String propInfo = defaultProp.getProperty("string_null_values");
             for (String column: propInfo.split(",")) {
-                retain_long_columns.add(column.trim());
+                string_null_values.add(column.trim());
             }
         }
         if(defaultProp.containsKey("long_columns")) {
@@ -517,6 +602,7 @@ public class Ldb4RdbConverter {
                 string_columns.add(column.trim());
             }
         }
+
         if(defaultProp.containsKey("stats-file")) {
             statsFile = defaultProp.getProperty("stats-file");
         }
@@ -525,6 +611,17 @@ public class Ldb4RdbConverter {
         }
         if(defaultProp.containsKey("end-time")) {
             end_time = defaultProp.getProperty("end-time");
+        }
+        for(String key: defaultProp.stringPropertyNames()){
+            if(!propertySet.contains(key)){
+                String propInfo = defaultProp.getProperty(key);
+                List<String> nulls = new ArrayList<>();
+                String[] values = propInfo.split(",");
+                for(String value: values){
+                    nulls.add(value);
+                }
+                rowNulls.put(key, nulls);
+            }
         }
     }
 
@@ -573,8 +670,15 @@ public class Ldb4RdbConverter {
                                     throw new NullPointerException();
                                 }
                                 Long timeVal = timeToMillisecondsConverter(record.getString(time), timeFormatter);
-                                if(long_null_values.contains(timeVal)){
-                                    throw new NullPointerException();
+                                if(rowNulls.containsKey(field.name())){
+                                    if(checkForNullLong(timeVal, field.name()) == null){
+                                        throw new NullPointerException();
+                                    }
+                                }
+                                else{
+                                    if(long_null_values.contains(timeVal)){
+                                        throw new NullPointerException();
+                                    }
                                 }
                                 if(startTimeEpoch != 0L && timeVal < startTimeEpoch){
                                     timeGated += 1;
@@ -626,8 +730,15 @@ public class Ldb4RdbConverter {
                              // Could be null or long
                                 try {
                                     Long date = timeToMillisecondsConverter(record.getString(field.name()), timeFormatter);
-                                    if(long_null_values.contains(date)){
-                                        throw new NullPointerException();
+                                    if(rowNulls.containsKey(field.name())){
+                                        if(checkForNullLong(date, field.name()) == null){
+                                            throw new NullPointerException();
+                                        }
+                                    }
+                                    else{
+                                        if(long_null_values.contains(date)){
+                                            throw new NullPointerException();
+                                        }
                                     }
                                     genericRecordBuilder = genericRecordBuilder.set(field, date);
                                     Integer[] stat = statsTable.get(field.name());
@@ -636,6 +747,16 @@ public class Ldb4RdbConverter {
                                 } catch (DateTimeParseException e) {
                                     try {
                                         Long number = record.getLong(field.name());
+                                        if(rowNulls.containsKey(field.name())){
+                                            if(checkForNullLong(number, field.name()) == null){
+                                                throw new NullPointerException();
+                                            }
+                                        }
+                                        else{
+                                            if(long_null_values.contains(number)){
+                                                throw new NullPointerException();
+                                            }
+                                        }
                                         Integer[] stat = statsTable.get(field.name());
                                         stat[COL_NON_NULL_VALUES] += 1;
                                         if(number == 0L){
@@ -667,7 +788,17 @@ public class Ldb4RdbConverter {
                                     throw new NullPointerException();
                                 }
                                 Double number = record.getDouble(longitude);
-                                if(double_null_values.contains(number)){
+                                if(rowNulls.containsKey(field.name())){
+                                    if(checkForNullDouble(number, field.name()) == null){
+                                        throw new NullPointerException();
+                                    }
+                                }
+                                else{
+                                    if(double_null_values.contains(number)){
+                                        throw new NullPointerException();
+                                    }
+                                }
+                                if(number > 180 || number < -180){
                                     throw new NullPointerException();
                                 }
                                 genericRecordBuilder = genericRecordBuilder.set("lon", number);
@@ -700,7 +831,17 @@ public class Ldb4RdbConverter {
                                         throw new NullPointerException();
                                     }
                                     Double number = record.getDouble(latitude);
-                                    if(double_null_values.contains(number)){
+                                    if(rowNulls.containsKey(field.name())){
+                                        if(checkForNullDouble(number, field.name()) == null){
+                                            throw new NullPointerException();
+                                        }
+                                    }
+                                    else{
+                                        if(double_null_values.contains(number)){
+                                            throw new NullPointerException();
+                                        }
+                                    }
+                                    if(number > 90 || number < -90){
                                         throw new NullPointerException();
                                     }
                                     genericRecordBuilder = genericRecordBuilder.set("lat", number);
@@ -730,8 +871,15 @@ public class Ldb4RdbConverter {
                         else {
                             try {
                                 Double number = record.getDouble(field.name());
-                                if(double_null_values.contains(number)){
-
+                                if(rowNulls.containsKey(field.name())){
+                                    if(checkForNullDouble(number, field.name()) == null){
+                                        throw new NullPointerException();
+                                    }
+                                }
+                                else{
+                                    if(double_null_values.contains(number)){
+                                        throw new NullPointerException();
+                                    }
                                 }
                                 genericRecordBuilder = genericRecordBuilder.set(field, number);
                                 Integer[] stat = statsTable.get(field.name());
@@ -747,15 +895,27 @@ public class Ldb4RdbConverter {
                                 statsTable.put(field.name(), stat2);
                                 genericRecordBuilder = genericRecordBuilder.set(field, null);
                             }
+                            catch(NullPointerException e1){
+                                Integer[] stat = statsTable.get(field.name());
+                                stat[COL_NULL_VALUES] += 1;
+                                statsTable.put(field.name(), stat);
+                                break;
+                            }
                         }
                         break;
-
                     case FLOAT:
                         try{
                             Float foundValue = record.getFloat(field.name());
                             // Max values are sometimes used to indicate missing data.
-                            if(float_null_values.contains(foundValue)){
-                                throw new NullPointerException();
+                            if(rowNulls.containsKey(field.name())){
+                                if(checkForNullFloat(foundValue, field.name()) == null){
+                                    throw new NullPointerException();
+                                }
+                            }
+                            else{
+                                if(float_null_values.contains(foundValue)){
+                                    throw new NullPointerException();
+                                }
                             }
                             genericRecordBuilder = genericRecordBuilder.set(field, foundValue);
                             Integer[] stat = statsTable.get(field.name());
@@ -796,6 +956,17 @@ public class Ldb4RdbConverter {
                             break;
                         }
                         else {
+                            String answer = record.getString(field.name());
+                            if(rowNulls.containsKey(field.name())){
+                                if(checkForNullString(answer, field.name()) == null){
+                                    throw new NullPointerException();
+                                }
+                            }
+                            else{
+                                if(string_null_values.contains(answer)){
+                                    throw new NullPointerException();
+                                }
+                            }
                             genericRecordBuilder = genericRecordBuilder.set(field, record.getString(field.name()));
                             Integer[] stat = statsTable.get(field.name());
                             stat[COL_NON_NULL_VALUES] += 1;
@@ -887,9 +1058,11 @@ public class Ldb4RdbConverter {
         File exampleFile = csvFiles.get(0);
         parser.beginParsing(exampleFile);
         String[] headerArray = parser.parseNextRecord().getValues();
+        List<String> headerList = Arrays.asList(headerArray);
         Record exampleRow = parser.parseNextRecord();
         String[] exampleArray = exampleRow.getValues();
         parser.stopParsing();
+        checkValidity(headerList);
         timeFormatter = identifyTimeFormat(exampleRow.getString(time));
         JSONObject mainjson = createJSONFromCSVRecords(headerArray, exampleArray);
         hashMapCounters = new Long[hashColumns.size()];
