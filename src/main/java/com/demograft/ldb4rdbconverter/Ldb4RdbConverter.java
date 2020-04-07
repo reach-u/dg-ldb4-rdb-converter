@@ -48,7 +48,7 @@ public class Ldb4RdbConverter {
     private StringBuilder statistics = new StringBuilder();
 
     private final String[] propertyNames = new String[]{"input-file","output-file","stats-file","latitude","longitude","time","start-time","end-time","columns_to_map_long",
-    "long_null_values", "double_null_values", "float_null_values", "long_columns", "float_columns", "double_columns", "string_columns", "time_columns"};
+    "long_null_values", "double_null_values", "float_null_values", "long_columns", "float_columns", "double_columns", "string_columns", "time_columns", "parquet-size"};
 
     private final Set<String> propertySet = new HashSet<>(Arrays.asList(propertyNames));
 
@@ -1027,6 +1027,16 @@ public class Ldb4RdbConverter {
         }
     }
 
+    private String newFileName(Integer number){
+        if(outputFile.contains(".")){
+            String[] pieces = outputFile.split("[.]");
+            return pieces[0] + "_" + number + ".parquet";
+        }
+        else{
+            return outputFile + "_" + number + ".parquet";
+        }
+    }
+
     private void run() {
 
         if(configFile.equals("")){
@@ -1101,17 +1111,19 @@ public class Ldb4RdbConverter {
         int blockSize = 1024;
         int pageSize = 65535;
 
-
+        Integer filenumber = 1;
+        Integer written = 0;
         Path output = new Path(outputFile);
-        try(
-                ParquetWriter<GenericData.Record> parquetWriter = AvroParquetWriter
-                        .<GenericData.Record>builder(output)
-                        .withSchema(avroSchema)
-                        .withCompressionCodec(CompressionCodecName.SNAPPY)
-                        .withRowGroupSize(blockSize)
-                        .withPageSize(pageSize)
-                        .build()
-        ){
+        ParquetWriter<GenericData.Record> parquetWriter = null;
+
+        try {
+            parquetWriter = AvroParquetWriter
+                    .<GenericData.Record>builder(new Path(newFileName(filenumber)))
+                    .withSchema(avroSchema)
+                    .withCompressionCodec(CompressionCodecName.SNAPPY)
+                    .withRowGroupSize(blockSize)
+                    .withPageSize(pageSize)
+                    .build();
             for(File file: csvFiles) {
                 parser.beginParsing(file);
                 // Remove the header row
@@ -1120,7 +1132,20 @@ public class Ldb4RdbConverter {
                     while((record = parser.parseNextRecord()) != null) {
                         GenericData.Record toWrite = convertToParquetRecord(avroSchema, record);
                         if (toWrite != null) {
+                            if(parquet_size > 0 && written >= parquet_size){
+                                written = 0;
+                                parquetWriter.close();
+                                filenumber += 1;
+                                parquetWriter = AvroParquetWriter
+                                        .<GenericData.Record>builder(new Path(newFileName(filenumber)))
+                                        .withSchema(avroSchema)
+                                        .withCompressionCodec(CompressionCodecName.SNAPPY)
+                                        .withRowGroupSize(blockSize)
+                                        .withPageSize(pageSize)
+                                        .build();
+                            }
                             parquetWriter.write(toWrite);
+                            written += 1;
                         }
                     }
                 }
@@ -1134,7 +1159,14 @@ public class Ldb4RdbConverter {
             }
         }catch(java.io.IOException e){
             System.out.println(String.format("Error writing parquet file %s", e.getMessage()));
-            e.printStackTrace();
+        }finally{
+            if(parquetWriter != null) {
+                try {
+                    parquetWriter.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
         writeStatsFile();
     }
