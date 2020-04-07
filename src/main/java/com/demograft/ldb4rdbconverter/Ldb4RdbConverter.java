@@ -8,58 +8,141 @@ import org.apache.avro.JsonProperties;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hdfs.web.JsonUtil;
+import org.apache.parquet.hadoop.ParquetWriter;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
+
+import java.io.*;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 
 import org.apache.avro.Schema;
-import org.apache.parquet.schema.MessageType;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
-import org.apache.parquet.hadoop.ParquetWriter;
-import org.apache.parquet.avro.AvroSchemaConverter;
 import org.apache.parquet.avro.AvroParquetWriter;
-
-import javax.tools.DocumentationTool;
 
 @Slf4j
 public class Ldb4RdbConverter {
 
-
-    @Option(name = "--input-file", required = true, usage = "Input file, accepts only CSV")
     private File inputFile;
-
-    @Option(name = "--output-file", required = true, usage = "Output file, outputs one parquet file")
     private String outputFile;
 
-    @Option(name = "--longitude", required = false, usage = "Redefine the longitude row")
-    private String longitude = "longitude";
+    @Option(name = "--config-file", required = true, usage = "Configuration file to configure generator")
+    private String configFile = "";
 
-    @Option(name = "--latitude", required = false, usage = "Redefine the latitude row")
-    private String latitude = "latitude";
-
-    @Option(name = "--time", required = false, usage = "Redefine the time row")
-    private String time = "time";
+    private String longitude = "";
+    private String latitude = "";
+    private String time = "";
+    private String statsFile = "stats.txt";
 
     private int files = 0;
+
+    private List<String> columnsToRemove = new ArrayList<>();
 
     private DateTimeFormatter timeFormatter;
 
     private StringBuilder statistics = new StringBuilder();
 
-    private HashMap<String, Integer> IdHash = new HashMap<>();
+    private final String[] propertyNames = new String[]{"input-file","output-file","stats-file","latitude","longitude","time","start-time","end-time","columns_to_map_long",
+    "long_null_values", "double_null_values", "float_null_values", "long_columns", "float_columns", "double_columns", "string_columns", "time_columns", "parquet-size"};
+
+    private final Set<String> propertySet = new HashSet<>(Arrays.asList(propertyNames));
+
+    private List<String> hashColumns = new ArrayList<>();
+
+    private List<Float> float_null_values = new ArrayList<>();
+
+    private List<Double> double_null_values = new ArrayList<>();
+
+    private List<Long> long_null_values = new ArrayList<>();
+
+    private List<String> string_null_values = new ArrayList<>();
+
+    private Long[] hashMapCounters;
+
+    private List<String> long_columns = new ArrayList<>();
+
+    private List<String> float_columns = new ArrayList<>();
+
+    private List<String> double_columns = new ArrayList<>();
+
+    private List<String> string_columns = new ArrayList<>();
+
+    private List<String> time_columns = new ArrayList<>();
+
+    private List<HashMap<String, Long>> hashTables = new ArrayList<>();
+
+    private HashMap<String, Integer[]> statsTable = new HashMap<>();
+
+    private HashMap<String, Float[]> minMaxTable = new HashMap<>();
+
+    private Integer parquet_size = 0;
+
+    /* Statistics look as follows: 4 numbers for each row, they indicate:
+        1. Number of non-null values
+        2. Number of malformed values
+        3. Number of NULL values
+        4. Number of zero-values (0.0 for float, double; 0 for long)
+
+        Minmax values table as follows:
+
+        1. Min value of this column
+        2. Max value of this column
+
+       */
+
+    private HashMap<String, Schema.Type> typeTable = new HashMap<>();
+
+    private Integer totalRecords = 0;
+
+    private Integer timeGated = 0;
+
+    private Integer writtenRecords = 0;
+
+    private String start_time = "";
+
+    private String end_time = "";
+
+    private Long startTimeEpoch = 0L;
+
+    private Long endTimeEpoch = 0L;
+
+    private Map<String, Integer> timeData = new TreeMap<>();
+
+    private Map<String, List<String>> rowNulls = new HashMap<>();
+
+    private final int COL_NON_NULL_VALUES = 0;
+
+    private final int COL_MALFORMED_VALUES = 1;
+
+    private final int COL_NULL_VALUES = 2;
+
+    private final int COL_ZERO_VALUES = 3;
+
+    private final int COL_MIN_VALUE = 0;
+
+    private final int COL_MAX_VALUE = 1;
+
+    private String formatName(String name){
+        name = name.replaceAll("_", " ");
+        StringBuilder newName = new StringBuilder();
+        for(int i = 0; i < name.length() - 2; i++){
+            if(Character.isLowerCase(name.charAt(i)) && Character.isUpperCase(name.charAt(i + 1)) && Character.isLowerCase(name.charAt(i + 2))){
+                newName.append(name.charAt(i));
+                newName.append(" ");
+            }
+            else{
+                newName.append(name.charAt(i));
+            }
+        }
+        newName.append(name.charAt(name.length()-2));
+        newName.append(name.charAt(name.length()-1));
+        return newName.toString();
+    }
 
     public static void main(String[] args) {
         Ldb4RdbConverter converter = new Ldb4RdbConverter();
@@ -148,6 +231,29 @@ public class Ldb4RdbConverter {
         return parsedRecords;
     }
 
+    private Schema.Type getSchemaType(Schema subschema, String field){
+        if(subschema.getType() == Schema.Type.UNION){
+            if(field == null){
+                return subschema.getTypes().get(0).getType();
+            }
+            else{
+                return subschema.getTypes().get(1).getType();
+            }
+        }
+        else{
+            return subschema.getType();
+        }
+    }
+
+    private Schema.Type getSchemaType(Schema subschema){
+        if(subschema.getType() == Schema.Type.UNION){
+            return subschema.getTypes().get(1).getType();
+        }
+        else{
+            return subschema.getType();
+        }
+    }
+
     private JSONObject createJSONFromCSVRecords(String[] headerrow, String[] examplerow){
         JSONObject mainjson = new JSONObject();
         mainjson.put("name", "locationrecord");
@@ -155,55 +261,95 @@ public class Ldb4RdbConverter {
         mainjson.put("namespace", "com.demograft.ldb4rdbconverter.generated");
         JSONArray list = new JSONArray();
         for(int i = 0; i < headerrow.length; i++){
+            boolean missing = false;
             String headername = headerrow[i].trim();
             String example = examplerow[i];
             JSONObject jo = new JSONObject();
             // The three most important rows, longitude, latitude and time.
-
             if(headername.equals(longitude)){
                 jo.put("name", "lon");
                 jo.put("type", "double");
-                list.add(jo);
             }
             else if(headername.equals(latitude)){
                 jo.put("name", "lat");
                 jo.put("type", "double");
-                list.add(jo);
-            } else if(headername.equals(time)){
+            }
+            else if(headername.equals(time)){
                 jo.put("name", "time");
                 jo.put("type", "long");
-                list.add(jo);
-            } else {
+            }
+
+            // Predefined rows
+
+            else if(long_columns.contains(headername) || time_columns.contains(headername)){
+                jo.put("name", headername);
+                JSONArray typelist = new JSONArray();
+                typelist.add("null");
+                typelist.add("long");
+                jo.put("type", typelist);
+            }
+            else if(float_columns.contains(headername)){
+                jo.put("name", headername);
+                JSONArray typelist = new JSONArray();
+                typelist.add("null");
+                typelist.add("float");
+                jo.put("type", typelist);
+            }
+            else if(double_columns.contains(headername)){
+                jo.put("name", headername);
+                JSONArray typelist = new JSONArray();
+                typelist.add("null");
+                typelist.add("double");
+                jo.put("type", typelist);
+            }
+            else if(string_columns.contains(headername)){
+                jo.put("name", headername);
+                JSONArray typelist = new JSONArray();
+                typelist.add("null");
+                typelist.add("string");
+                jo.put("type", typelist);
+            }
+
+            // Try to determine column type
+
+            else{
                 try {
-                    long data = Long.parseLong(example);
+                    long time = timeToMillisecondsConverter(example, timeFormatter);
                     jo.put("name", headername);
                     JSONArray typelist = new JSONArray();
                     typelist.add("null");
                     typelist.add("long");
                     jo.put("type", typelist);
-                    list.add(jo);
-                }
-                catch (NumberFormatException e2) {
+                    time_columns.add(headername);
+                } catch (DateTimeParseException e1) {
                     try {
-                        double data = Double.parseDouble(example);
+                        float data = Float.parseFloat(example);
+                        jo.put("name", headername);
+                        JSONArray typelist = new JSONArray();
+                        typelist.add("null");
+                        typelist.add("float");
+                        jo.put("type", typelist);
+                    } catch (NumberFormatException e2) {
+                        if(example.equals("")){
+                            throw new NullPointerException();
+                        }
                         JSONArray typelist = new JSONArray();
                         jo.put("name", headername);
                         typelist.add("null");
-                        typelist.add("double");
+                        if(hashColumns.contains(headername)){
+                            typelist.add("long");
+                        }
+                        else{
+                            typelist.add("string");
+                        }
                         jo.put("type", typelist);
-                        list.add(jo);
-                    } catch (NumberFormatException e3) {
-                        JSONArray typelist = new JSONArray();
-                        jo.put("name", headername);
-                        typelist.add("null");
-                        typelist.add("string");
-                        jo.put("type", typelist);
-                        list.add(jo);
                     }
-                    catch (NullPointerException e) {
-                        // If in the example data line the value indicated is null, that property is ignored and not used to construct the schema.
-                    }
+                } catch (NullPointerException e3) {
+                   missing = true;
                 }
+            }
+            if(!columnsToRemove.contains(headername) && !missing){
+                list.add(jo);
             }
         }
 
@@ -217,11 +363,12 @@ public class Ldb4RdbConverter {
         for (Schema.Field field: schema.getFields()){
             JSONObject row = new JSONObject();
             row.put("hidden", false);
+            String formattedName = formatName(field.name());
             if(field.name().equals("lat")){
                 row.put("attributeName", "Latitude");
                 row.put("attributeTooltip", "Refined location of the record, used by heatmapping and optionally by trajectory visualisation function" +
-                        "\\nGeographic WGS84 coordinate in decimal degrees." +
-                        "\\nIn the current version equals to " + latitude);
+                        "\nGeographic WGS84 coordinate in decimal degrees." +
+                        "\nIn the current version equals to " + latitude);
                 row.put("group","Geographic Location");
                 row.put("unit","degrees");
                 row.put("attributeId", field.name());
@@ -236,15 +383,34 @@ public class Ldb4RdbConverter {
                 row.put("unit","degrees");
                 row.put("attributeId", field.name());
                 data.add(row);
+            } else if(getSchemaType(field.schema()) == Schema.Type.LONG && field.name().equals("time")){
+
+                // guiType:dateTime
+
+                row.put("attributeName", "Time");
+                row.put("attributeTooltip", formattedName);
+                row.put("group","Generic");
+                row.put("attributeId", field.name());
+                row.put("guiType", "dateTime");
+                data.add(row);
+            }
+            else if(getSchemaType(field.schema()) == Schema.Type.LONG){
+                row.put("attributeName", formattedName);
+                row.put("attributeTooltip", formattedName);
+                row.put("group","Generic");
+                row.put("attributeId", field.name());
+                if(time_columns.contains(field.name())){
+                    row.put("guiType", "dateTime");
+                }
+                data.add(row);
             }
             else{
-                row.put("attributeName", field.name());
-                row.put("attributeTooltip", field.name());
+                row.put("attributeName", formattedName);
+                row.put("attributeTooltip", formattedName);
                 row.put("group","Generic");
                 row.put("attributeId", field.name());
                 data.add(row);
             }
-
         }
         attributeTr.put("data", data);
 
@@ -256,186 +422,684 @@ public class Ldb4RdbConverter {
         }
     }
 
-    private List<GenericData.Record> convertToParquetRecords(Schema schema, List<Record> csvRecords){
-        List<GenericData.Record> toWriteList = new ArrayList<>();
-        HashMap<String, Integer[]> statsTable = new HashMap<>();
-        for (Schema.Field field: schema.getFields()){
-            statsTable.put(field.name(), new Integer[]{0,0,0});
+    private String typeToString(Schema.Type type){
+        if(type == Schema.Type.LONG){
+            return "long";
         }
-        statistics.append("Parquet file generation successful. \n \n \n General statistics: \n  Found a total of " + csvRecords.size() + " records. ");
-        for(Record record: csvRecords){
-            boolean malformed = false;
+        if(type == Schema.Type.FLOAT){
+            return "float";
+        }
+        if(type == Schema.Type.DOUBLE){
+            return "double";
+        }
+        else{
+            return "string";
+        }
+    }
+
+    private Float checkForNullFloat(Float value, String headerName){
+        if(!rowNulls.containsKey(headerName)){
+            return value;
+        }
+        else{
+            List<String> comparables = rowNulls.get(headerName);
+            for(String comparable:comparables){
+                if(Float.parseFloat(comparable) == value){
+                    return null;
+                }
+            }
+        }
+            return value;
+    }
+
+    private Double checkForNullDouble(Double value, String headerName){
+        if(!rowNulls.containsKey(headerName)){
+            return value;
+        }
+        else{
+            List<String> comparables = rowNulls.get(headerName);
+            for(String comparable:comparables){
+                if(Double.parseDouble(comparable) == value){
+                    return null;
+                }
+            }
+        }
+        return value;
+    }
+
+    private Long checkForNullLong(Long value, String headerName){
+        if(!rowNulls.containsKey(headerName)){
+            return value;
+        }
+        else{
+            List<String> comparables = rowNulls.get(headerName);
+            for(String comparable:comparables){
+                if(Long.parseLong(comparable) == value){
+                    return null;
+                }
+            }
+        }
+        return value;
+    }
+
+    private String checkForNullString(String value, String headerName){
+        if(!rowNulls.containsKey(headerName)){
+            return value;
+        }
+        else{
+            List<String> comparables = rowNulls.get(headerName);
+            for(String comparable:comparables){
+                if(comparable.equals(value)){
+                    return null;
+                }
+            }
+        }
+        return value;
+    }
+
+    private void checkValidity(List<String> headers){
+        for(String configValue: rowNulls.keySet()){
+            if(!headers.contains(configValue)){
+                throw new RuntimeException("Error. Configuration file contains a property that isn't a configuration property or a header in the data. .");
+            }
+        }
+    }
+
+    private void readConfigFile(){
+        Properties defaultProp = new Properties();
+
+        try(FileReader fileReader = new FileReader(configFile)){
+            defaultProp.load(fileReader);
+        } catch (IOException e) {
+            System.out.println("Error reading the configuration file, make sure your configuration file is named correctly.");
+        }
+        if(!defaultProp.containsKey("input-file")){
+            throw new RuntimeException("Missing input-file property in configuration file");
+        }
+        inputFile = new File(defaultProp.getProperty("input-file"));
+        if(!defaultProp.containsKey("output-file")){
+            throw new RuntimeException("Missing output-file property in configuration file");
+        }
+        outputFile = defaultProp.getProperty("output-file");
+        if(!defaultProp.containsKey("longitude")){
+            throw new RuntimeException("Missing longitude property in configuration file");
+        }
+        longitude = defaultProp.getProperty("longitude");
+        if(!defaultProp.containsKey("latitude")){
+            throw new RuntimeException("Missing latitude property in configuration file");
+        }
+        latitude = defaultProp.getProperty("latitude");
+        if(!defaultProp.containsKey("time")){
+            throw new RuntimeException("Missing time property in configuration file");
+        }
+        time = defaultProp.getProperty("time");
+        if(defaultProp.containsKey("columns_to_remove")) {
+            String propInfo = defaultProp.getProperty("columns_to_remove");
+            for (String column: propInfo.split(",")) {
+                columnsToRemove.add(column.trim());
+            }
+        }
+        if(defaultProp.containsKey("parquet-size")){
+            parquet_size = Integer.parseInt(defaultProp.getProperty("parquet-size"));
+        }
+        if(defaultProp.containsKey("columns_to_map_long")) {
+            String propInfo = defaultProp.getProperty("columns_to_map_long");
+            for (String column: propInfo.split(",")) {
+                hashColumns.add(column.trim());
+            }
+        }
+        if(defaultProp.containsKey("time_columns")) {
+            String propInfo = defaultProp.getProperty("time_columns");
+            for (String column: propInfo.split(",")) {
+                time_columns.add(column.trim());
+            }
+        }
+        if(defaultProp.containsKey("long_null_values")) {
+            String propInfo = defaultProp.getProperty("long_null_values");
+            for (String column: propInfo.split(",")) {
+                long_null_values.add(Long.parseLong(column.trim()));
+            }
+        }
+        if(defaultProp.containsKey("double_null_values")) {
+            String propInfo = defaultProp.getProperty("double_null_values");
+            for (String column: propInfo.split(",")) {
+                double_null_values.add(Double.parseDouble(column.trim()));
+            }
+        }
+        if(defaultProp.containsKey("float_null_values")) {
+            String propInfo = defaultProp.getProperty("float_null_values");
+            for (String column: propInfo.split(",")) {
+                float_null_values.add(Float.parseFloat(column.trim()));
+            }
+        }
+        if(defaultProp.containsKey("string_null_values")) {
+            String propInfo = defaultProp.getProperty("string_null_values");
+            for (String column: propInfo.split(",")) {
+                string_null_values.add(column.trim());
+            }
+        }
+        if(defaultProp.containsKey("long_columns")) {
+            String propInfo = defaultProp.getProperty("long_columns");
+            for (String column: propInfo.split(",")) {
+                long_columns.add(column.trim());
+            }
+        }
+        if(defaultProp.containsKey("float_columns")) {
+            String propInfo = defaultProp.getProperty("float_columns");
+            for (String column: propInfo.split(",")) {
+                float_columns.add(column.trim());
+            }
+        }
+        if(defaultProp.containsKey("double_columns")) {
+            String propInfo = defaultProp.getProperty("double_columns");
+            for (String column: propInfo.split(",")) {
+                double_columns.add(column.trim());
+            }
+        }
+        if(defaultProp.containsKey("string_columns")) {
+            String propInfo = defaultProp.getProperty("string_columns");
+            for (String column: propInfo.split(",")) {
+                string_columns.add(column.trim());
+            }
+        }
+
+        if(defaultProp.containsKey("stats-file")) {
+            statsFile = defaultProp.getProperty("stats-file");
+        }
+        if(defaultProp.containsKey("start-time")) {
+            start_time = defaultProp.getProperty("start-time");
+        }
+        if(defaultProp.containsKey("end-time")) {
+            end_time = defaultProp.getProperty("end-time");
+        }
+        for(String key: defaultProp.stringPropertyNames()){
+            if(!propertySet.contains(key)){
+                String propInfo = defaultProp.getProperty(key);
+                List<String> nulls = new ArrayList<>();
+                String[] values = propInfo.split(",");
+                for(String value: values){
+                    nulls.add(value);
+                }
+                rowNulls.put(key, nulls);
+            }
+        }
+    }
+
+    private Long generateNewHash(String hash, Integer index){
+        if(hashTables.get(index).containsKey(hash)){
+            return hashTables.get(index).get(hash);
+        }
+        Long hashNumber = hashMapCounters[index] + 1;
+        hashTables.get(index).put(hash, hashNumber);
+        hashMapCounters[index] = hashNumber;
+        return hashNumber;
+    }
+
+    private GenericData.Record convertToParquetRecord(Schema schema, Record record){
+            boolean faulty = false;
             GenericRecordBuilder genericRecordBuilder = new GenericRecordBuilder(schema);
             for (Schema.Field field: schema.getFields()) {
                 Schema subschema = field.schema();
 
-                //Union data types always have 2 types, first is null and second is the needed type.
+                String targetName;
 
-                if(subschema.getType() == Schema.Type.UNION){
-                    if(record.getString(field.name()) == null){
-                        subschema = subschema.getTypes().get(0);
-                    }
-                    else{
-                        subschema = subschema.getTypes().get(1);
-                    }
+                //Union data types always have 2 types, first is null and second is the needed type.
+                if(field.name().equals("lat")){
+                    targetName = latitude;
                 }
-                switch(subschema.getType()){
+                else if(field.name().equals("lon")){
+                    targetName = longitude;
+                }
+                else if(field.name().equals("time")){
+                    targetName = time;
+                }
+                else{
+                    targetName = field.name();
+                }
+                Schema.Type subSchemaType = getSchemaType(subschema,record.getString(targetName));
+
+
+                switch(subSchemaType){
+
+                    // Long currently only used for dateTimes and hashes
+
                     case LONG:
                         if (field.name().equals("time")){
-                                try {
-                                    genericRecordBuilder = genericRecordBuilder.set("time", timeToMillisecondsConverter(record.getString(time), timeFormatter));
-                                    Integer[] stat = statsTable.get("time");
-                                    stat[0] += 1;
-                                    statsTable.put("time", stat);
+                            try {
+                                if(record.getString(time).equals("")){
+                                    throw new NullPointerException();
                                 }
-                                catch(DateTimeParseException e){
-                                    Integer[] stat2 = statsTable.get("time");
-                                    stat2[0] += 1;
-                                    stat2[1] += 1;
-                                    statsTable.put("time", stat2);
-                                    malformed = true;
-                                    break;
+                                Long timeVal = timeToMillisecondsConverter(record.getString(time), timeFormatter);
+                                if(rowNulls.containsKey(field.name())){
+                                    if(checkForNullLong(timeVal, field.name()) == null){
+                                        throw new NullPointerException();
+                                    }
                                 }
-                                catch(NullPointerException e2) {
-                                    Integer[] stat2 = statsTable.get("time");
-                                    stat2[2] += 1;
-                                    statsTable.put("time", stat2);
-                                    malformed = true;
-                                    break;
+                                else{
+                                    if(long_null_values.contains(timeVal)){
+                                        throw new NullPointerException();
+                                    }
                                 }
+                                if(startTimeEpoch != 0L && timeVal < startTimeEpoch){
+                                    timeGated += 1;
+                                    faulty = true;
+                                }
+                                if(endTimeEpoch != 0L && timeVal > endTimeEpoch){
+                                    timeGated += 1;
+                                    faulty = true;
+                                }
+                                genericRecordBuilder = genericRecordBuilder.set("time", timeVal);
+                                Integer[] stat2 = statsTable.get("time");
+                                stat2[COL_NON_NULL_VALUES] += 1;
+                                statsTable.put("time", stat2);
+                            } catch (DateTimeParseException e) {
+                                Integer[] stat2 = statsTable.get("time");
+                                stat2[COL_NON_NULL_VALUES] += 1;
+                                stat2[COL_MALFORMED_VALUES] += 1;
+                                statsTable.put("time", stat2);
+                                faulty = true;
+                                break;
+                            }
+                            catch(NullPointerException e1){
+                                Integer[] stat = statsTable.get("time");
+                                stat[COL_NULL_VALUES] += 1;
+                                statsTable.put("time", stat);
+                                faulty = true;
+                                break;
+                            }
+                        }
+                        else if(hashColumns.contains(field.name())){
+                            String fieldName = field.name();
+                            Integer index = hashColumns.indexOf(fieldName);
+                            try {
+                                Long hashValue = generateNewHash(record.getString(fieldName), index);
+                                genericRecordBuilder = genericRecordBuilder.set(field, hashValue);
+                                Integer[] stat = statsTable.get(field.name());
+                                stat[COL_NON_NULL_VALUES] += 1;
+                                statsTable.put(field.name(), stat);
+                                break;
+                            }
+                            catch (NullPointerException e){
+                                Integer[] stat = statsTable.get(field.name());
+                                stat[COL_NULL_VALUES] += 1;
+                                statsTable.put(field.name(), stat);
+                                break;
+                            }
                         }
                         else {
                              // Could be null or long
                                 try {
+                                    Long date = timeToMillisecondsConverter(record.getString(field.name()), timeFormatter);
+                                    if(rowNulls.containsKey(field.name())){
+                                        if(checkForNullLong(date, field.name()) == null){
+                                            throw new NullPointerException();
+                                        }
+                                    }
+                                    else{
+                                        if(long_null_values.contains(date)){
+                                            throw new NullPointerException();
+                                        }
+                                    }
+                                    genericRecordBuilder = genericRecordBuilder.set(field, date);
                                     Integer[] stat = statsTable.get(field.name());
-                                    stat[0] += 1;
+                                    stat[COL_NON_NULL_VALUES] += 1;
                                     statsTable.put(field.name(), stat);
-                                    genericRecordBuilder = genericRecordBuilder.set(field, record.getLong(field.name()));
-                                } catch (NumberFormatException e) {
-                                    //If long row is not long, record abnormality and set it to null
-                                    Integer[] stat2 = statsTable.get(field.name());
-                                    stat2[1] += 1;
-                                    statsTable.put(field.name(), stat2);
-                                    genericRecordBuilder = genericRecordBuilder.set(field, null);
+                                } catch (DateTimeParseException e) {
+                                    try {
+                                        Long number = record.getLong(field.name());
+                                        if(rowNulls.containsKey(field.name())){
+                                            if(checkForNullLong(number, field.name()) == null){
+                                                throw new NullPointerException();
+                                            }
+                                        }
+                                        else{
+                                            if(long_null_values.contains(number)){
+                                                throw new NullPointerException();
+                                            }
+                                        }
+                                        Integer[] stat = statsTable.get(field.name());
+                                        stat[COL_NON_NULL_VALUES] += 1;
+                                        if(number == 0L){
+                                            stat[COL_ZERO_VALUES] += 1;
+                                        }
+                                        statsTable.put(field.name(), stat);
+                                        genericRecordBuilder = genericRecordBuilder.set(field, number);
+                                    }
+                                    catch(NumberFormatException e1){
+                                        Integer[] stat2 = statsTable.get(field.name());
+                                        stat2[COL_NON_NULL_VALUES] += 1;
+                                        stat2[COL_MALFORMED_VALUES] += 1;
+                                        statsTable.put("lon", stat2);
+                                        break;
+                                    }
+                                }
+                                catch(NullPointerException e2){
+                                    Integer[] stat = statsTable.get(field.name());
+                                    stat[COL_NULL_VALUES] += 1;
+                                    statsTable.put(field.name(), stat);
+                                    break;
+                                }
                             }
-                        }
                         break;
                     case DOUBLE:
                         if (field.name().equals("lon")){
-                            try {
-                                if(record.getDouble(longitude) == null){
-                                    Integer[] stat = statsTable.get("lon");
-                                    stat[2] += 1;
-                                    statsTable.put("lon", stat);
-                                    malformed = true;
-                                    break;
+                            try{
+                                if(record.getString(longitude).equals("")){
+                                    throw new NullPointerException();
                                 }
-                                Integer[] stat = statsTable.get("lon");
-                                stat[0] += 1;
-                                statsTable.put("lon", stat);
-                                genericRecordBuilder = genericRecordBuilder.set("lon", record.getDouble(longitude));
+                                Double number = record.getDouble(longitude);
+                                if(rowNulls.containsKey(field.name())){
+                                    if(checkForNullDouble(number, field.name()) == null){
+                                        throw new NullPointerException();
+                                    }
+                                }
+                                else{
+                                    if(double_null_values.contains(number)){
+                                        throw new NullPointerException();
+                                    }
+                                }
+                                if(number > 180 || number < -180){
+                                    throw new NullPointerException();
+                                }
+                                genericRecordBuilder = genericRecordBuilder.set("lon", number);
+                                Integer[] stat2 = statsTable.get("lon");
+                                stat2[COL_NON_NULL_VALUES] += 1;
+                                if(number == 0.0D){
+                                    stat2[COL_ZERO_VALUES] += 1;
+                                }
+                                statsTable.put("lon", stat2);
                             }
                             catch(NumberFormatException e){
                                 Integer[] stat2 = statsTable.get("lon");
-                                stat2[0] += 1;
-                                stat2[1] += 1;
+                                stat2[COL_NON_NULL_VALUES] += 1;
+                                stat2[COL_MALFORMED_VALUES] += 1;
                                 statsTable.put("lon", stat2);
-                                malformed = true;
+                                faulty = true;
+                                break;
+                            }
+                            catch(NullPointerException e1){
+                                Integer[] stat = statsTable.get("lon");
+                                stat[COL_NULL_VALUES] += 1;
+                                statsTable.put("lon", stat);
+                                faulty = true;
                                 break;
                             }
                         }
                         else if(field.name().equals("lat")){
-                            try {
-                                if(record.getDouble(latitude) == null){
-                                    Integer[] stat = statsTable.get("lat");
-                                    stat[2] += 1;
-                                    statsTable.put("lat", stat);
-                                    malformed = true;
+                                try{
+                                    if(record.getString(latitude).equals("")){
+                                        throw new NullPointerException();
+                                    }
+                                    Double number = record.getDouble(latitude);
+                                    if(rowNulls.containsKey(field.name())){
+                                        if(checkForNullDouble(number, field.name()) == null){
+                                            throw new NullPointerException();
+                                        }
+                                    }
+                                    else{
+                                        if(double_null_values.contains(number)){
+                                            throw new NullPointerException();
+                                        }
+                                    }
+                                    if(number > 90 || number < -90){
+                                        throw new NullPointerException();
+                                    }
+                                    genericRecordBuilder = genericRecordBuilder.set("lat", number);
+                                    Integer[] stat2 = statsTable.get("lat");
+                                    stat2[COL_NON_NULL_VALUES] += 1;
+                                    if(number == 0.0D){
+                                        stat2[COL_ZERO_VALUES] += 1;
+                                    }
+                                    statsTable.put("lat", stat2);
+                                }
+                                catch(NumberFormatException e){
+                                    Integer[] stat2 = statsTable.get("lat");
+                                    stat2[COL_NON_NULL_VALUES] += 1;
+                                    stat2[COL_MALFORMED_VALUES] += 1;
+                                    statsTable.put("lat", stat2);
+                                    faulty = true;
                                     break;
                                 }
-                                Integer[] stat = statsTable.get("lat");
-                                stat[0] += 1;
-                                statsTable.put("lat", stat);
-                                genericRecordBuilder = genericRecordBuilder.set("lat", record.getDouble(latitude));
-                            }
-                            catch(NumberFormatException e){
-                                Integer[] stat2 = statsTable.get("lat");
-                                stat2[0] += 1;
-                                stat2[1] += 1;
-                                statsTable.put("lat", stat2);
-                                malformed = true;
-                                break;
-                            }
+                                catch(NullPointerException e1){
+                                    Integer[] stat = statsTable.get("lat");
+                                    stat[COL_NULL_VALUES] += 1;
+                                    statsTable.put("lat", stat);
+                                    faulty = true;
+                                    break;
+                                }
                         }
                         else {
                             try {
-                                genericRecordBuilder = genericRecordBuilder.set(field, record.getDouble(field.name()));
+                                Double number = record.getDouble(field.name());
+                                if(rowNulls.containsKey(field.name())){
+                                    if(checkForNullDouble(number, field.name()) == null){
+                                        throw new NullPointerException();
+                                    }
+                                }
+                                else{
+                                    if(double_null_values.contains(number)){
+                                        throw new NullPointerException();
+                                    }
+                                }
+                                genericRecordBuilder = genericRecordBuilder.set(field, number);
                                 Integer[] stat = statsTable.get(field.name());
-                                stat[0] += 1;
+                                stat[COL_NON_NULL_VALUES] += 1;
+                                if(number == 0.0D){
+                                    stat[COL_ZERO_VALUES] += 1;
+                                }
                                 statsTable.put(field.name(), stat);
                             }
                             catch(NumberFormatException e){
                                 Integer[] stat2 = statsTable.get(field.name());
-                                stat2[1] += 1;
+                                stat2[COL_NULL_VALUES] += 1;
                                 statsTable.put(field.name(), stat2);
                                 genericRecordBuilder = genericRecordBuilder.set(field, null);
                             }
+                            catch(NullPointerException e1){
+                                Integer[] stat = statsTable.get(field.name());
+                                stat[COL_NULL_VALUES] += 1;
+                                statsTable.put(field.name(), stat);
+                                break;
+                            }
+                        }
+                        break;
+                    case FLOAT:
+                        try{
+                            Float foundValue = record.getFloat(field.name());
+                            // Max values are sometimes used to indicate missing data.
+                            if(rowNulls.containsKey(field.name())){
+                                if(checkForNullFloat(foundValue, field.name()) == null){
+                                    throw new NullPointerException();
+                                }
+                            }
+                            else{
+                                if(float_null_values.contains(foundValue)){
+                                    throw new NullPointerException();
+                                }
+                            }
+                            genericRecordBuilder = genericRecordBuilder.set(field, foundValue);
+                            Integer[] stat = statsTable.get(field.name());
+                            Float[] minmax = minMaxTable.get(field.name());
+                            stat[COL_NON_NULL_VALUES] += 1;
+                            if(foundValue == 0.0F){
+                                stat[COL_ZERO_VALUES] += 1;
+                            }
+                            statsTable.put(field.name(), stat);
+                            if(minmax[COL_MIN_VALUE] > foundValue){
+                                minmax[COL_MIN_VALUE] = foundValue;
+                            }
+                            if(minmax[COL_MAX_VALUE] < foundValue){
+                                minmax[COL_MAX_VALUE] = foundValue;
+                            }
+                            minMaxTable.put(field.name(), minmax);
+                        }
+                        catch(NumberFormatException e1){
+                            Integer[] stat2 = statsTable.get(field.name());
+                            stat2[COL_NON_NULL_VALUES] += 1;
+                            stat2[COL_MALFORMED_VALUES] += 1;
+                            statsTable.put(field.name(), stat2);
+                            genericRecordBuilder = genericRecordBuilder.set(field, null);
+                        }
+                        catch(NullPointerException e){
+                            Integer[] stat = statsTable.get(field.name());
+                            stat[COL_NULL_VALUES] += 1;
+                            statsTable.put(field.name(), stat);
+                            genericRecordBuilder = genericRecordBuilder.set(field, null);
                         }
                         break;
                     case STRING:
-                        genericRecordBuilder = genericRecordBuilder.set(field, record.getString(field.name()));
-                        Integer[] stat = statsTable.get(field.name());
-                        stat[0] += 1;
-                        statsTable.put(field.name(), stat);
-                        break;
+                        if(record.getString(field.name()).equals("")){
+                            Integer[] stat = statsTable.get(field.name());
+                            stat[COL_NULL_VALUES] += 1;
+                            statsTable.put(field.name(), stat);
+                            genericRecordBuilder = genericRecordBuilder.set(field, null);
+                            break;
+                        }
+                        else {
+                            String answer = record.getString(field.name());
+                            if(rowNulls.containsKey(field.name())){
+                                if(checkForNullString(answer, field.name()) == null){
+                                    throw new NullPointerException();
+                                }
+                            }
+                            else{
+                                if(string_null_values.contains(answer)){
+                                    throw new NullPointerException();
+                                }
+                            }
+                            genericRecordBuilder = genericRecordBuilder.set(field, record.getString(field.name()));
+                            Integer[] stat = statsTable.get(field.name());
+                            stat[COL_NON_NULL_VALUES] += 1;
+                            statsTable.put(field.name(), stat);
+                            break;
+                        }
                     case NULL:
                         Integer[] stat2 = statsTable.get(field.name());
-                        stat2[2] += 1;
+                        stat2[COL_NULL_VALUES] += 1;
                         statsTable.put(field.name(), stat2);
                         genericRecordBuilder = genericRecordBuilder.set(field, null);
                         break;
 
-                        //Union data types always have 2 types, first is null and second is the needed type.
+                        //Union data types always have 2 types, first is null and the second is the needed type.
                 }
             }
-            if(!malformed) {
-                GenericData.Record towrite = genericRecordBuilder.build();
-                toWriteList.add(towrite);
+            if(!faulty) {
+                totalRecords += 1;
+                writtenRecords += 1;
+                ZonedDateTime date = ZonedDateTime.parse(record.getString(time), timeFormatter);
+                LocalDate localdate = date.toLocalDate();
+                if(timeData.containsKey(localdate.toString())){
+                    Integer count = timeData.get(localdate.toString());
+                    count += 1;
+                    timeData.put(localdate.toString(), count);
+                }
+                else{
+                    timeData.put(localdate.toString(), 1);
+                }
+                return genericRecordBuilder.build();
             }
-        }
-        statistics.append(toWriteList.size() + " records from " + files + " files parsed into the parquet file. " + (csvRecords.size() - toWriteList.size()) + " records contained malformed lat, lon or time fields.\n");
+            else{
+                totalRecords += 1;
+                return null;
+            }
+    }
+
+    private void writeStatsFile(){
+        statistics.append("Parquet file generation successful. \n \n \nGeneral statistics: \nFound a total of " + totalRecords + " records. ");
+        statistics.append(writtenRecords + " records from " + files + " files parsed into the parquet file. " + (totalRecords - writtenRecords) + " records contained malformed lat, lon or time fields. " + timeGated + " records discarded due to time restrictions.\n");
+        statistics.append("Time restrictions set:    \nStart time:  " + start_time + "    \nEnd time:  " + end_time + ". \n\n");
         statistics.append("Field statistics in the form of: field name, non-null values, null values :  \n\n");
         for(String key: statsTable.keySet()){
-            statistics.append(key + " , non-null: " + statsTable.get(key)[0] + " , invalid: " + statsTable.get(key)[1] + " , null: " + statsTable.get(key)[2] + "\n");
+            statistics.append(key + " , non-null: " + statsTable.get(key)[0] + " , invalid: " + statsTable.get(key)[1] + " , null: " + statsTable.get(key)[2] + " , zero-values: " + statsTable.get(key)[3] + " , type: " + typeToString(typeTable.get(key)) +  "\n");
+            if(minMaxTable.containsKey(key)){
+                statistics.append("     Min: " + minMaxTable.get(key)[0] + "       Max: " + minMaxTable.get(key)[1] + "\n");
+            }
         }
-        return toWriteList;
+        statistics.append("Time data.\nDate followed by the number of samples found from that date\n\n\n");
+        for(String key: timeData.keySet()){
+            statistics.append(key + "   -   " + timeData.get(key) + "\n");
+        }
+        try(FileWriter fw = new FileWriter(statsFile)){
+            fw.write(statistics.toString());
+        }
+        catch(IOException e){
+            System.out.println("Error writing the statistics file. Error message: " + e.getMessage());
+        }
+    }
+
+    private String newFileName(Integer number){
+        if(outputFile.contains(".")){
+            String[] pieces = outputFile.split("[.]");
+            return pieces[0] + "_" + number + ".parquet";
+        }
+        else{
+            return outputFile + "_" + number + ".parquet";
+        }
     }
 
     private void run() {
 
-        List<Record> allRecords = parseCSV();
-        Record headers = allRecords.get(0);
-        Record examplerow = allRecords.get(1);
-        String[] headerarray = headers.getValues();
-        String[] examplearray = examplerow.getValues();
-        timeFormatter = identifyTimeFormat(examplerow.getString(time));
-        JSONObject mainjson = createJSONFromCSVRecords(headerarray, examplearray);
-        // Take the first data sample and the header row from the data and create a JSON object based on those that is then converted into a schema.
+        if(configFile.equals("")){
+            throw new RuntimeException("Configuration file not set, cannot proceed.");
+        }
+        readConfigFile();
+        List<File> csvFiles = new ArrayList<>();
+
+        if(!inputFile.isDirectory()){
+            csvFiles.add(inputFile);
+        }
+        else {
+            try {
+                for (File file : inputFile.listFiles()) {
+                    if (file.getName().endsWith(".csv")) {
+                        csvFiles.add(file);
+                    }
+                }
+            }
+            catch(NullPointerException e) {
+                System.out.println("Error finding the file/directory, please recheck the file name and make sure this file or directory exists.");
+            }
+        }
+        CsvParserSettings settings = new CsvParserSettings();
+        settings.getFormat().setLineSeparator("\n");
+        CsvParser parser = new CsvParser(settings);
 
 
-        // Remove the headerrow, because it doesn't contain location data.
-        allRecords.remove(0);
+        File exampleFile = csvFiles.get(0);
+        parser.beginParsing(exampleFile);
+        String[] headerArray = parser.parseNextRecord().getValues();
+        List<String> headerList = Arrays.asList(headerArray);
+        Record exampleRow = parser.parseNextRecord();
+        String[] exampleArray = exampleRow.getValues();
+        parser.stopParsing();
+        checkValidity(headerList);
+        timeFormatter = identifyTimeFormat(exampleRow.getString(time));
+        JSONObject mainjson = createJSONFromCSVRecords(headerArray, exampleArray);
+        hashMapCounters = new Long[hashColumns.size()];
+        for (int i = 0; i < hashColumns.size(); i++){
+            HashMap<String, Long> toAdd = new HashMap<>();
+            hashTables.add(toAdd);
+        }
 
-        // Create the shcema from json object.
+
+        Arrays.fill(hashMapCounters, 0L);
 
         Schema avroSchema = new Schema.Parser().parse(mainjson.toString());
-
-        // Create the attributeTranslations file for the GUI based on chosen attributes and types.
-
         writeAttributeFile(avroSchema, "attributeTranslation.json");
 
-        List<GenericData.Record> toWrite = convertToParquetRecords(avroSchema, allRecords);
-
+        for (Schema.Field field: avroSchema.getFields()){
+            statsTable.put(field.name(), new Integer[]{0,0,0,0});
+            typeTable.put(field.name(), getSchemaType(field.schema()));
+            if (getSchemaType(field.schema()) == Schema.Type.FLOAT){
+                minMaxTable.put(field.name(), new Float[]{Float.MAX_VALUE, Float.MIN_VALUE});
+            }
+        }
+        if(!start_time.equals("")) {
+            startTimeEpoch = timeToMillisecondsConverter(start_time, timeFormatter);
+        }
+        if(!end_time.equals("")){
+            endTimeEpoch = timeToMillisecondsConverter(end_time, timeFormatter);
+        }
 
         /* CSV -> JSON -> Schema -> Record -> Parquetfile
                             |
@@ -447,30 +1111,63 @@ public class Ldb4RdbConverter {
         int blockSize = 1024;
         int pageSize = 65535;
 
-
+        Integer filenumber = 1;
+        Integer written = 0;
         Path output = new Path(outputFile);
-        try(
-                AvroParquetWriter parquetWriter = new AvroParquetWriter(
-                        output,
-                        avroSchema,
-                        CompressionCodecName.SNAPPY,
-                        blockSize,
-                        pageSize)
-        ){
-            for(GenericData.Record obj : toWrite){
-                parquetWriter.write(obj);
+        ParquetWriter<GenericData.Record> parquetWriter = null;
+
+        try {
+            parquetWriter = AvroParquetWriter
+                    .<GenericData.Record>builder(new Path(newFileName(filenumber)))
+                    .withSchema(avroSchema)
+                    .withCompressionCodec(CompressionCodecName.SNAPPY)
+                    .withRowGroupSize(blockSize)
+                    .withPageSize(pageSize)
+                    .build();
+            for(File file: csvFiles) {
+                parser.beginParsing(file);
+                // Remove the header row
+                Record record = parser.parseNextRecord();
+                try{
+                    while((record = parser.parseNextRecord()) != null) {
+                        GenericData.Record toWrite = convertToParquetRecord(avroSchema, record);
+                        if (toWrite != null) {
+                            if(parquet_size > 0 && written >= parquet_size){
+                                written = 0;
+                                parquetWriter.close();
+                                filenumber += 1;
+                                parquetWriter = AvroParquetWriter
+                                        .<GenericData.Record>builder(new Path(newFileName(filenumber)))
+                                        .withSchema(avroSchema)
+                                        .withCompressionCodec(CompressionCodecName.SNAPPY)
+                                        .withRowGroupSize(blockSize)
+                                        .withPageSize(pageSize)
+                                        .build();
+                            }
+                            parquetWriter.write(toWrite);
+                            written += 1;
+                        }
+                    }
+                }
+                catch(NullPointerException e){
+                    System.out.println("Error. Encountered an empty file or a file with only a header row");
+                }
+                finally{
+                    files += 1;
+                    parser.stopParsing();
+                }
             }
         }catch(java.io.IOException e){
             System.out.println(String.format("Error writing parquet file %s", e.getMessage()));
-            e.printStackTrace();
+        }finally{
+            if(parquetWriter != null) {
+                try {
+                    parquetWriter.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
         }
-
-        try(FileWriter fw = new FileWriter("stats.txt")){
-            fw.write(statistics.toString());
-        }
-        catch(IOException e){
-            System.out.println("Error writing the statistics file. Error message: " + e.getMessage());
-        }
-
+        writeStatsFile();
     }
 }
