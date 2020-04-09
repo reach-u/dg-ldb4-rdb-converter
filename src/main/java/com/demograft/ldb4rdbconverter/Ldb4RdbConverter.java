@@ -47,8 +47,8 @@ public class Ldb4RdbConverter {
 
     private StringBuilder statistics = new StringBuilder();
 
-    private final String[] propertyNames = new String[]{"input-file","output-file","stats-file","latitude","longitude","time","start-time","end-time","columns_to_map_long",
-    "long_null_values", "double_null_values", "float_null_values", "long_columns", "float_columns", "double_columns", "string_columns", "time_columns", "parquet-size"};
+    private final String[] propertyNames = new String[]{"input-file","output-file","stats-file","latitude","longitude","time","start-time","end-time","columns-to-map-long",
+    "long-null-values", "double-null-values", "float-null-values", "long-columns", "float-columns", "double-columns", "string-columns", "time-columns", "parquet-size","excluded","unique-strings","timezone"};
 
     private final Set<String> propertySet = new HashSet<>(Arrays.asList(propertyNames));
 
@@ -62,7 +62,7 @@ public class Ldb4RdbConverter {
 
     private List<String> string_null_values = new ArrayList<>();
 
-    private Long[] hashMapCounters;
+    private long[] hashMapCounters;
 
     private List<String> long_columns = new ArrayList<>();
 
@@ -80,7 +80,11 @@ public class Ldb4RdbConverter {
 
     private HashMap<String, Float[]> minMaxTable = new HashMap<>();
 
-    private Integer parquet_size = 0;
+    private HashMap<String, Set<String>> uniqueStrings = new HashMap<>();
+
+    private int parquet_size = 0;
+
+    private int uniqueMax = Integer.MAX_VALUE;
 
     /* Statistics look as follows: 4 numbers for each row, they indicate:
         1. Number of non-null values
@@ -97,19 +101,19 @@ public class Ldb4RdbConverter {
 
     private HashMap<String, Schema.Type> typeTable = new HashMap<>();
 
-    private Integer totalRecords = 0;
+    private int totalRecords = 0;
 
-    private Integer timeGated = 0;
+    private int timeGated = 0;
 
-    private Integer writtenRecords = 0;
+    private int writtenRecords = 0;
 
     private String start_time = "";
 
     private String end_time = "";
 
-    private Long startTimeEpoch = 0L;
+    private long startTimeEpoch = 0L;
 
-    private Long endTimeEpoch = 0L;
+    private long endTimeEpoch = 0L;
 
     private Map<String, Integer> timeData = new TreeMap<>();
 
@@ -126,6 +130,13 @@ public class Ldb4RdbConverter {
     private final int COL_MIN_VALUE = 0;
 
     private final int COL_MAX_VALUE = 1;
+
+    private String timeZone = "UTC";
+
+
+
+
+
 
     private String formatName(String name){
         name = name.replaceAll("_", " ");
@@ -156,7 +167,7 @@ public class Ldb4RdbConverter {
         converter.run();
     }
 
-    static DateTimeFormatter identifyTimeFormat(String time){
+    static DateTimeFormatter identifyTimeFormat(String time, String timeZone){
         try {
             DateTimeFormatter formatter
                     = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS xx");
@@ -164,16 +175,6 @@ public class Ldb4RdbConverter {
             return formatter;
         }
         catch(DateTimeParseException e) {
-        }
-        try {
-            DateTimeFormatter formatter
-                    = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-
-            LocalDateTime localdate = LocalDateTime.parse(time, formatter);
-            ZonedDateTime date = ZonedDateTime.of(localdate, ZoneId.ofOffset("", ZoneOffset.of("+0000")));
-            return formatter;
-        }
-        catch(DateTimeParseException e1) {
         }
         try {
             DateTimeFormatter formatter
@@ -191,8 +192,21 @@ public class Ldb4RdbConverter {
             ZonedDateTime date = ZonedDateTime.parse(time, formatter);
             return formatter;
         }
-        catch(DateTimeParseException e3){
+        catch(DateTimeParseException e1){
+
+        }
+        try {
+            DateTimeFormatter formatter
+                    = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+
+
+            LocalDateTime localdate = LocalDateTime.parse(time, formatter);
+            ZonedDateTime date = ZonedDateTime.of(localdate, ZoneId.of(timeZone));
+            return formatter;
+        }
+        catch(DateTimeParseException e3) {
             throw new RuntimeException("Error. Couldn't get DateTime parser from first example row. Does not match any common date time formats.");
+
         }
     }
 
@@ -533,8 +547,8 @@ public class Ldb4RdbConverter {
             throw new RuntimeException("Missing time property in configuration file");
         }
         time = defaultProp.getProperty("time");
-        if(defaultProp.containsKey("columns_to_remove")) {
-            String propInfo = defaultProp.getProperty("columns_to_remove");
+        if(defaultProp.containsKey("excluded")) {
+            String propInfo = defaultProp.getProperty("excluded");
             for (String column: propInfo.split(",")) {
                 columnsToRemove.add(column.trim());
             }
@@ -542,62 +556,66 @@ public class Ldb4RdbConverter {
         if(defaultProp.containsKey("parquet-size")){
             parquet_size = Integer.parseInt(defaultProp.getProperty("parquet-size"));
         }
-        if(defaultProp.containsKey("columns_to_map_long")) {
-            String propInfo = defaultProp.getProperty("columns_to_map_long");
+        if(defaultProp.containsKey("columns-to-map-long")) {
+            String propInfo = defaultProp.getProperty("columns-to-map-long");
             for (String column: propInfo.split(",")) {
                 hashColumns.add(column.trim());
             }
         }
-        if(defaultProp.containsKey("time_columns")) {
-            String propInfo = defaultProp.getProperty("time_columns");
+        if(defaultProp.containsKey("time-columns")) {
+            String propInfo = defaultProp.getProperty("time-columns");
             for (String column: propInfo.split(",")) {
                 time_columns.add(column.trim());
             }
         }
-        if(defaultProp.containsKey("long_null_values")) {
-            String propInfo = defaultProp.getProperty("long_null_values");
+        if(defaultProp.containsKey("long-null-values")) {
+            String propInfo = defaultProp.getProperty("long-null-values");
             for (String column: propInfo.split(",")) {
                 long_null_values.add(Long.parseLong(column.trim()));
             }
         }
-        if(defaultProp.containsKey("double_null_values")) {
-            String propInfo = defaultProp.getProperty("double_null_values");
+        if(defaultProp.containsKey("double-null-values")) {
+            String propInfo = defaultProp.getProperty("double-null-values");
             for (String column: propInfo.split(",")) {
                 double_null_values.add(Double.parseDouble(column.trim()));
             }
         }
-        if(defaultProp.containsKey("float_null_values")) {
-            String propInfo = defaultProp.getProperty("float_null_values");
+        if(defaultProp.containsKey("float-null-values")) {
+            String propInfo = defaultProp.getProperty("float-null-values");
             for (String column: propInfo.split(",")) {
                 float_null_values.add(Float.parseFloat(column.trim()));
             }
         }
-        if(defaultProp.containsKey("string_null_values")) {
-            String propInfo = defaultProp.getProperty("string_null_values");
+        if(defaultProp.containsKey("unique-strings")) {
+            String propInfo = defaultProp.getProperty("unique-strings");
+            uniqueMax = Integer.parseInt(propInfo);
+        }
+        if(defaultProp.containsKey("string-null-values")) {
+            String propInfo = defaultProp.getProperty("string-null-values");
             for (String column: propInfo.split(",")) {
-                string_null_values.add(column.trim());
+                string_null_values.add(column);
             }
         }
-        if(defaultProp.containsKey("long_columns")) {
-            String propInfo = defaultProp.getProperty("long_columns");
+        if(defaultProp.containsKey("long-columns")) {
+            String propInfo = defaultProp.getProperty("long-columns");
             for (String column: propInfo.split(",")) {
                 long_columns.add(column.trim());
             }
         }
-        if(defaultProp.containsKey("float_columns")) {
-            String propInfo = defaultProp.getProperty("float_columns");
+        if(defaultProp.containsKey("float-columns")) {
+            String propInfo = defaultProp.getProperty("float-columns");
             for (String column: propInfo.split(",")) {
                 float_columns.add(column.trim());
             }
         }
-        if(defaultProp.containsKey("double_columns")) {
-            String propInfo = defaultProp.getProperty("double_columns");
+        if(defaultProp.containsKey("double-columns")) {
+            String propInfo = defaultProp.getProperty("double-columns");
             for (String column: propInfo.split(",")) {
                 double_columns.add(column.trim());
             }
         }
-        if(defaultProp.containsKey("string_columns")) {
-            String propInfo = defaultProp.getProperty("string_columns");
+        if(defaultProp.containsKey("string-columns")) {
+            String propInfo = defaultProp.getProperty("string-columns");
             for (String column: propInfo.split(",")) {
                 string_columns.add(column.trim());
             }
@@ -611,6 +629,9 @@ public class Ldb4RdbConverter {
         }
         if(defaultProp.containsKey("end-time")) {
             end_time = defaultProp.getProperty("end-time");
+        }
+        if(defaultProp.containsKey("timezone")){
+            timeZone = defaultProp.getProperty("timezone");
         }
         for(String key: defaultProp.stringPropertyNames()){
             if(!propertySet.contains(key)){
@@ -847,7 +868,7 @@ public class Ldb4RdbConverter {
                                     genericRecordBuilder = genericRecordBuilder.set("lat", number);
                                     Integer[] stat2 = statsTable.get("lat");
                                     stat2[COL_NON_NULL_VALUES] += 1;
-                                    if(number == 0.0D){
+                                    if(number == 0.000000D){
                                         stat2[COL_ZERO_VALUES] += 1;
                                     }
                                     statsTable.put("lat", stat2);
@@ -884,7 +905,7 @@ public class Ldb4RdbConverter {
                                 genericRecordBuilder = genericRecordBuilder.set(field, number);
                                 Integer[] stat = statsTable.get(field.name());
                                 stat[COL_NON_NULL_VALUES] += 1;
-                                if(number == 0.0D){
+                                if(number == 0.000000D){
                                     stat[COL_ZERO_VALUES] += 1;
                                 }
                                 statsTable.put(field.name(), stat);
@@ -967,7 +988,10 @@ public class Ldb4RdbConverter {
                                     throw new NullPointerException();
                                 }
                             }
-                            genericRecordBuilder = genericRecordBuilder.set(field, record.getString(field.name()));
+                            Set<String> set = uniqueStrings.get(field.name());
+                            set.add(answer);
+                            uniqueStrings.put(field.name(), set);
+                            genericRecordBuilder = genericRecordBuilder.set(field, answer);
                             Integer[] stat = statsTable.get(field.name());
                             stat[COL_NON_NULL_VALUES] += 1;
                             statsTable.put(field.name(), stat);
@@ -1009,10 +1033,18 @@ public class Ldb4RdbConverter {
         statistics.append(writtenRecords + " records from " + files + " files parsed into the parquet file. " + (totalRecords - writtenRecords) + " records contained malformed lat, lon or time fields. " + timeGated + " records discarded due to time restrictions.\n");
         statistics.append("Time restrictions set:    \nStart time:  " + start_time + "    \nEnd time:  " + end_time + ". \n\n");
         statistics.append("Field statistics in the form of: field name, non-null values, null values :  \n\n");
+        for(String key: uniqueStrings.keySet()){
+            if(uniqueStrings.get(key).size() > uniqueMax){
+                statistics.append("WARNING!!! Field " + key + " exceeded maximum allowed unique Classifiers. \n");
+            }
+        }
         for(String key: statsTable.keySet()){
             statistics.append(key + " , non-null: " + statsTable.get(key)[0] + " , invalid: " + statsTable.get(key)[1] + " , null: " + statsTable.get(key)[2] + " , zero-values: " + statsTable.get(key)[3] + " , type: " + typeToString(typeTable.get(key)) +  "\n");
             if(minMaxTable.containsKey(key)){
-                statistics.append("     Min: " + minMaxTable.get(key)[0] + "       Max: " + minMaxTable.get(key)[1] + "\n");
+                statistics.append("     Min: " + minMaxTable.get(key)[0] + "       Max: " + minMaxTable.get(key)[1] + "\n\n");
+            }
+            if(uniqueStrings.containsKey(key)){
+                statistics.append("     Unique string count: " + uniqueStrings.get(key).size() + "\n\n");
             }
         }
         statistics.append("Time data.\nDate followed by the number of samples found from that date\n\n\n");
@@ -1073,9 +1105,9 @@ public class Ldb4RdbConverter {
         String[] exampleArray = exampleRow.getValues();
         parser.stopParsing();
         checkValidity(headerList);
-        timeFormatter = identifyTimeFormat(exampleRow.getString(time));
+        timeFormatter = identifyTimeFormat(exampleRow.getString(time), timeZone);
         JSONObject mainjson = createJSONFromCSVRecords(headerArray, exampleArray);
-        hashMapCounters = new Long[hashColumns.size()];
+        hashMapCounters = new long[hashColumns.size()];
         for (int i = 0; i < hashColumns.size(); i++){
             HashMap<String, Long> toAdd = new HashMap<>();
             hashTables.add(toAdd);
@@ -1092,6 +1124,9 @@ public class Ldb4RdbConverter {
             typeTable.put(field.name(), getSchemaType(field.schema()));
             if (getSchemaType(field.schema()) == Schema.Type.FLOAT){
                 minMaxTable.put(field.name(), new Float[]{Float.MAX_VALUE, Float.MIN_VALUE});
+            }
+            if (getSchemaType(field.schema()) == Schema.Type.STRING){
+                uniqueStrings.put(field.name(), new HashSet<>());
             }
         }
         if(!start_time.equals("")) {
@@ -1111,8 +1146,8 @@ public class Ldb4RdbConverter {
         int blockSize = 1024;
         int pageSize = 65535;
 
-        Integer filenumber = 1;
-        Integer written = 0;
+        int filenumber = 1;
+        int written = 0;
         Path output = new Path(outputFile);
         ParquetWriter<GenericData.Record> parquetWriter = null;
 
