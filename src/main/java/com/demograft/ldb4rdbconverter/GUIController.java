@@ -27,8 +27,6 @@ public class GUIController {
     @FXML
     TextField newConfigFileName;
     @FXML
-    TextField newOutputFileName;
-    @FXML
     Button loadButton;
     @FXML
     Button newButton;
@@ -48,6 +46,10 @@ public class GUIController {
     Button loadExistingNext;
     @FXML
     Label previousFileError;
+    @FXML
+    Button selectPreviousBack;
+    @FXML
+    Button selectNewBack;
 
     @FXML
     private void loadExistingClicked() throws Exception{
@@ -75,8 +77,16 @@ public class GUIController {
         }
     }
     @FXML
+    private void selectPreviousBackClicked() throws Exception{
+        stage = (Stage) selectPreviousBack.getScene().getWindow();
+        root = FXMLLoader.load(getClass().getClassLoader().getResource("mainScreen.fxml"));
+        Scene scene = new Scene(root);
+        stage.setScene(scene);
+        stage.show();
+    }
+    @FXML
     private void newFileNextClicked() throws Exception{
-        if(newConfigFileName.getText().equals("") || newOutputFileName.getText().equals("") || inputFile == null){
+        if(newConfigFileName.getText().equals("") || inputFile == null){
             newFileError.setVisible(true);
         }
         else{
@@ -86,6 +96,14 @@ public class GUIController {
             stage.setScene(scene);
             stage.show();
         }
+    }
+    @FXML
+    private void selectNewBackClicked() throws Exception{
+        stage = (Stage) selectNewBack.getScene().getWindow();
+        root = FXMLLoader.load(getClass().getClassLoader().getResource("mainScreen.fxml"));
+        Scene scene = new Scene(root);
+        stage.setScene(scene);
+        stage.show();
     }
     @FXML
     private void selectPreviousFileClicked(){

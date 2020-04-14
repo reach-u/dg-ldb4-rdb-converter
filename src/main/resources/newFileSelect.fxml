@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
@@ -18,12 +15,10 @@
     </TextField>
     <Label text="New configuration file name" AnchorPane.leftAnchor="220" AnchorPane.topAnchor="150">
     </Label>
-    <TextField fx:id="newOutputFileName" AnchorPane.leftAnchor="50" AnchorPane.topAnchor="200">
-    </TextField>
-    <Label text="New output file name" AnchorPane.leftAnchor="220" AnchorPane.topAnchor="200">
-    </Label>
     <Button fx:id="newFileNextButton" onAction="#newFileNextClicked" AnchorPane.bottomAnchor="50" AnchorPane.rightAnchor="50" text="Next">
     </Button>
-    <Label fx:id="newFileError" textFill="red" visible="false" AnchorPane.bottomAnchor="80" AnchorPane.rightAnchor="50" prefWidth="300" text="All inputs are required">
+    <Button fx:id="selectNewBack" onAction="#selectNewBackClicked" AnchorPane.bottomAnchor="50" AnchorPane.leftAnchor="50" text="Back">
+    </Button>
+    <Label fx:id="newFileError" textFill="red" visible="false" AnchorPane.topAnchor="200" AnchorPane.rightAnchor="50" prefWidth="300" text="All inputs are required">
     </Label>
 </AnchorPane>

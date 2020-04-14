@@ -18,9 +18,12 @@
     <Button fx:id="selectPreviousButton" onAction="#selectPreviousFileClicked" AnchorPane.topAnchor="100" AnchorPane.leftAnchor="80" text="Choose file">
 
     </Button>
+    <Button fx:id="selectPreviousBack" onAction="#selectPreviousBackClicked" AnchorPane.bottomAnchor="50" AnchorPane.leftAnchor="50" text="Back">
+
+    </Button>
     <Button fx:id="loadExistingNext" onAction="#previousFileNextClicked" AnchorPane.rightAnchor="50" AnchorPane.bottomAnchor="50" text="Next">
 
     </Button>
-    <Label fx:id="previousFileError" textFill="red" visible="false" AnchorPane.bottomAnchor="80" AnchorPane.rightAnchor="50" prefWidth="300" text="Please select a file">
+    <Label fx:id="previousFileError" textFill="red" visible="false" AnchorPane.topAnchor="140" AnchorPane.rightAnchor="130" prefWidth="200" text="Please select a file">
     </Label>
 </AnchorPane>
