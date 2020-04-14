@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.demograft.ldb4rdbconverter.GUIController"
+            prefHeight="400.0" prefWidth="400.0">
+    <Label AnchorPane.topAnchor="30" AnchorPane.leftAnchor="100" text="Load an existing configuration from a file">
+    </Label>
+    <Label fx:id="previousFile" text="Select your previous configuration file" AnchorPane.leftAnchor="170" AnchorPane.topAnchor="100">
+
+    </Label>
+    <Button fx:id="selectPreviousButton" onAction="#selectPreviousFileClicked" AnchorPane.topAnchor="100" AnchorPane.leftAnchor="80" text="Choose file">
+
+    </Button>
+    <Button fx:id="loadExistingNext" onAction="#previousFileNextClicked" AnchorPane.rightAnchor="50" AnchorPane.bottomAnchor="50" text="Next">
+
+    </Button>
+    <Label fx:id="previousFileError" textFill="red" visible="false" AnchorPane.bottomAnchor="80" AnchorPane.rightAnchor="50" prefWidth="300" text="Please select a file">
+    </Label>
+</AnchorPane>

@@ -432,7 +432,7 @@ public class Ldb4RdbConverter {
             fw.write(attributeTr.toJSONString());
         }
         catch(IOException e){
-            System.out.println("Error writing the attributeTranslation file. Error message: " + e.getMessage());
+            log.info("Error writing the attributeTranslation file. Error message: " + e.getMessage());
         }
     }
 
@@ -514,7 +514,8 @@ public class Ldb4RdbConverter {
     private void checkValidity(List<String> headers){
         for(String configValue: rowNulls.keySet()){
             if(!headers.contains(configValue)){
-                throw new RuntimeException("Error. Configuration file contains a property that isn't a configuration property or a header in the data. .");
+                log.error("Configuration file contains a property (" + configValue + ") that isn't a configuration property or a header in the data.");
+                throw new RuntimeException("Configuration file contains a property (" + configValue + ") that isn't a configuration property or a header in the data.");
             }
         }
     }
@@ -525,7 +526,7 @@ public class Ldb4RdbConverter {
         try(FileReader fileReader = new FileReader(configFile)){
             defaultProp.load(fileReader);
         } catch (IOException e) {
-            System.out.println("Error reading the configuration file, make sure your configuration file is named correctly.");
+            log.info("Error reading the configuration file, make sure your configuration file is named correctly.");
         }
         if(!defaultProp.containsKey("input-file")){
             throw new RuntimeException("Missing input-file property in configuration file");
@@ -977,24 +978,32 @@ public class Ldb4RdbConverter {
                             break;
                         }
                         else {
-                            String answer = record.getString(field.name());
-                            if(rowNulls.containsKey(field.name())){
-                                if(checkForNullString(answer, field.name()) == null){
-                                    throw new NullPointerException();
+                            try {
+                                String answer = record.getString(field.name());
+                                if (rowNulls.containsKey(field.name())) {
+                                    if (checkForNullString(answer, field.name()) == null) {
+                                        throw new NullPointerException();
+                                    }
+                                } else {
+                                    if (string_null_values.contains(answer)) {
+                                        throw new NullPointerException();
+                                    }
                                 }
+                                Set<String> set = uniqueStrings.get(field.name());
+                                set.add(answer);
+                                uniqueStrings.put(field.name(), set);
+                                genericRecordBuilder = genericRecordBuilder.set(field, answer);
+                                Integer[] stat = statsTable.get(field.name());
+                                stat[COL_NON_NULL_VALUES] += 1;
+                                statsTable.put(field.name(), stat);
+
                             }
-                            else{
-                                if(string_null_values.contains(answer)){
-                                    throw new NullPointerException();
-                                }
+                            catch(NullPointerException e1){
+                                Integer[] stat = statsTable.get(field.name());
+                                stat[COL_NULL_VALUES] += 1;
+                                statsTable.put(field.name(), stat);
+                                genericRecordBuilder = genericRecordBuilder.set(field, null);
                             }
-                            Set<String> set = uniqueStrings.get(field.name());
-                            set.add(answer);
-                            uniqueStrings.put(field.name(), set);
-                            genericRecordBuilder = genericRecordBuilder.set(field, answer);
-                            Integer[] stat = statsTable.get(field.name());
-                            stat[COL_NON_NULL_VALUES] += 1;
-                            statsTable.put(field.name(), stat);
                             break;
                         }
                     case NULL:
@@ -1055,7 +1064,7 @@ public class Ldb4RdbConverter {
             fw.write(statistics.toString());
         }
         catch(IOException e){
-            System.out.println("Error writing the statistics file. Error message: " + e.getMessage());
+            log.info("Error writing the statistics file. Error message: " + e.getMessage());
         }
     }
 
@@ -1089,7 +1098,7 @@ public class Ldb4RdbConverter {
                 }
             }
             catch(NullPointerException e) {
-                System.out.println("Error finding the file/directory, please recheck the file name and make sure this file or directory exists.");
+                log.info("Error finding the file/directory, please recheck the file name and make sure this file or directory exists.");
             }
         }
         CsvParserSettings settings = new CsvParserSettings();
@@ -1143,12 +1152,11 @@ public class Ldb4RdbConverter {
 
         */
 
-        int blockSize = 1024;
-        int pageSize = 65535;
+        int blockSize = 1024 * 1024 ;
+        int pageSize = 1024 * 1024 * 16;
 
         int filenumber = 1;
         int written = 0;
-        Path output = new Path(outputFile);
         ParquetWriter<GenericData.Record> parquetWriter = null;
 
         try {
@@ -1185,7 +1193,7 @@ public class Ldb4RdbConverter {
                     }
                 }
                 catch(NullPointerException e){
-                    System.out.println("Error. Encountered an empty file or a file with only a header row");
+                    log.info("Error. Encountered an empty file or a file with only a header row. File name is: " + file.getName());
                 }
                 finally{
                     files += 1;
@@ -1193,7 +1201,7 @@ public class Ldb4RdbConverter {
                 }
             }
         }catch(java.io.IOException e){
-            System.out.println(String.format("Error writing parquet file %s", e.getMessage()));
+            log.info(String.format("Error writing parquet file %s", e.getMessage()));
         }finally{
             if(parquetWriter != null) {
                 try {

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.demograft.ldb4rdbconverter.GUIController"
+            prefHeight="700.0" prefWidth="700.0">
+    <Label text="Determine the columns, that get excluded from data. If no columns are mentioned, just press next">
+    </Label>
+    <Button text="Next" AnchorPane.bottomAnchor="50" AnchorPane.rightAnchor="50">
+
+    </Button>
+</AnchorPane>

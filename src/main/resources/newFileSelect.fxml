@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.demograft.ldb4rdbconverter.GUIController"
+            prefHeight="400.0" prefWidth="400.0">
+    <Button fx:id="selectFileButton" onAction="#selectNewFileClicked" AnchorPane.topAnchor="100" AnchorPane.leftAnchor="130" text="Choose file">
+    </Button>
+    <Label fx:id="chosenFileName" text="Select your data file or folder" AnchorPane.leftAnchor="220" AnchorPane.topAnchor="100">
+    </Label>
+    <TextField fx:id="newConfigFileName" AnchorPane.leftAnchor="50" AnchorPane.topAnchor="150">
+    </TextField>
+    <Label text="New configuration file name" AnchorPane.leftAnchor="220" AnchorPane.topAnchor="150">
+    </Label>
+    <TextField fx:id="newOutputFileName" AnchorPane.leftAnchor="50" AnchorPane.topAnchor="200">
+    </TextField>
+    <Label text="New output file name" AnchorPane.leftAnchor="220" AnchorPane.topAnchor="200">
+    </Label>
+    <Button fx:id="newFileNextButton" onAction="#newFileNextClicked" AnchorPane.bottomAnchor="50" AnchorPane.rightAnchor="50" text="Next">
+    </Button>
+    <Label fx:id="newFileError" textFill="red" visible="false" AnchorPane.bottomAnchor="80" AnchorPane.rightAnchor="50" prefWidth="300" text="All inputs are required">
+    </Label>
+</AnchorPane>
