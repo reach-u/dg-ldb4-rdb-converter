@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.cell.PropertyValueFactory?>
+
+<AnchorPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.demograft.ldb4rdbconverter.GUIController"
+            >
+    <SplitPane dividerPositions="0.25" orientation="VERTICAL" prefHeight="600" prefWidth="700" AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0">
+        <AnchorPane prefHeight="150" prefWidth="700">
+            <Label text="Determine the 3 main attributes for location data" style="-fx-font: 16 times-new-roman;" AnchorPane.leftAnchor="20" AnchorPane.topAnchor="20" alignment="CENTER" textAlignment="CENTER">
+            </Label>
+            <HBox AnchorPane.topAnchor="60" AnchorPane.leftAnchor="50" spacing="23">
+                <VBox>
+                    <HBox spacing="20">
+                        <Label text="Latitude column" prefWidth="120" alignment="BASELINE_RIGHT">
+
+                        </Label>
+                        <TextField fx:id="latitude">
+
+                        </TextField>
+                        <Label textFill="red" fx:id="latitudeError" text="Error, Invalid header." visible="false">
+
+                        </Label>
+                    </HBox>
+                    <HBox spacing="20">
+                        <Label text="Longitude column" prefWidth="120" alignment="BASELINE_RIGHT">
+
+                        </Label>
+                        <TextField fx:id="longitude">
+
+                        </TextField>
+                        <Label textFill="red" fx:id="longitudeError" text="Error, invalid header." visible="false">
+
+                        </Label>
+                    </HBox>
+                    <HBox spacing="20">
+                        <Label text="Time column" prefWidth="120" alignment="BASELINE_RIGHT">
+
+                        </Label>
+                        <TextField fx:id="time">
+
+                        </TextField>
+                        <Label textFill="red" fx:id="timeError" visible="false" text="Error, invalid time.">
+
+                        </Label>
+                    </HBox>
+                </VBox>
+                <Button fx:id="mainRowsButton" onAction="#updateMainRows" text="Update">
+
+                </Button>
+                <Button fx:id="populateMain" onAction="#populateMainRows" text="populate" AnchorPane.leftAnchor="250" AnchorPane.topAnchor="100">
+
+                </Button>
+            </HBox>
+        </AnchorPane>
+        <AnchorPane prefHeight="450" prefWidth="700">
+            <TableView fx:id="mainTable" AnchorPane.topAnchor="10" AnchorPane.leftAnchor="50" prefWidth="600" prefHeight="380">
+                <columns>
+                    <TableColumn text="Property name" prefWidth="180">
+                        <cellValueFactory>
+                            <PropertyValueFactory property="header" />
+                        </cellValueFactory>
+                    </TableColumn>
+                    <TableColumn text="Type" prefWidth="120">
+                        <cellValueFactory>
+                            <PropertyValueFactory property="type" />
+                        </cellValueFactory>
+                    </TableColumn>
+                    <TableColumn text="Examples from this row" prefWidth="300">
+                        <cellValueFactory>
+                            <PropertyValueFactory property="examples" />
+                        </cellValueFactory>
+                    </TableColumn>
+                </columns>
+            </TableView>
+            <Label textFill="red" fx:id="mainAttrError" text="All fields are required to proceed. Please select a column for each." AnchorPane.bottomAnchor="20" AnchorPane.leftAnchor="50" visible="false">
+
+            </Label>
+            <Button fx:id="mainAttributesNext" onAction="#mainAttributesNextClicked" text="Next" AnchorPane.bottomAnchor="20" AnchorPane.rightAnchor="50" prefWidth="80" prefHeight="30">
+            </Button>
+        </AnchorPane>
+    </SplitPane>
+</AnchorPane>

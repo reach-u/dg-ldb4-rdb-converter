@@ -206,7 +206,6 @@ public class Ldb4RdbConverter {
         }
         catch(DateTimeParseException e3) {
             throw new RuntimeException("Error. Couldn't get DateTime parser from first example row. Does not match any common date time formats.");
-
         }
     }
 

@@ -9,10 +9,6 @@
 <AnchorPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
             fx:controller="com.demograft.ldb4rdbconverter.GUIController"
-            prefHeight="700.0" prefWidth="700.0">
-    <Label text="Determine the columns, that get excluded from data. If no columns are mentioned, just press next">
-    </Label>
-    <Button text="Next" AnchorPane.bottomAnchor="50" AnchorPane.rightAnchor="50">
+            prefHeight="400.0" prefWidth="600.0">
 
-    </Button>
 </AnchorPane>

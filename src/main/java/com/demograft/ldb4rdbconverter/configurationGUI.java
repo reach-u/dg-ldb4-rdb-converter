@@ -6,8 +6,11 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 
-public class configurationGUI extends Application {
+import java.io.File;
+import java.util.List;
 
+public class configurationGUI extends Application {
+    
     @Override
     public void start(Stage primaryStage) throws Exception{
         Parent root = FXMLLoader.load(getClass().getClassLoader().getResource("mainScreen.fxml"));
