@@ -1,54 +1,70 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<?import javafx.scene.control.cell.PropertyValueFactory?>
 
+<?import javafx.scene.control.cell.PropertyValueFactory?>
 <AnchorPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.demograft.ldb4rdbconverter.MainAttributesController"
-            >
+            fx:controller="com.demograft.ldb4rdbconverter.DefineNullValuesController">
     <SplitPane dividerPositions="0.25" orientation="VERTICAL" prefHeight="600" prefWidth="700" AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0">
         <AnchorPane prefHeight="150" prefWidth="700">
-            <Label text="Determine the 3 main attributes for location data" style="-fx-font: 16 times-new-roman;" AnchorPane.leftAnchor="20" AnchorPane.topAnchor="20" alignment="CENTER" textAlignment="CENTER">
+            <Label text="Determine default null-values used for data types" style="-fx-font: 16 times-new-roman;" AnchorPane.leftAnchor="20" AnchorPane.topAnchor="20" alignment="CENTER" textAlignment="CENTER">
             </Label>
             <HBox AnchorPane.topAnchor="60" AnchorPane.leftAnchor="50" spacing="23">
                 <VBox>
                     <HBox spacing="20">
-                        <Label text="Latitude column" prefWidth="120" alignment="BASELINE_RIGHT">
+                        <Label text="Long null-values:" prefWidth="120" alignment="BASELINE_RIGHT">
 
                         </Label>
-                        <TextField fx:id="latitude">
+                        <TextField fx:id="longNulls">
 
                         </TextField>
-                        <Label textFill="red" fx:id="latitudeError" text="Error, Invalid header." visible="false">
+                        <Label textFill="red" fx:id="longError" visible="false">
 
                         </Label>
                     </HBox>
                     <HBox spacing="20">
-                        <Label text="Longitude column" prefWidth="120" alignment="BASELINE_RIGHT">
+                        <Label text="Float null-values:" prefWidth="120" alignment="BASELINE_RIGHT">
 
                         </Label>
-                        <TextField fx:id="longitude">
+                        <TextField fx:id="floatNulls">
 
                         </TextField>
-                        <Label textFill="red" fx:id="longitudeError" text="Error, invalid header." visible="false">
+                        <Label textFill="red" fx:id="floatError" visible="false">
 
                         </Label>
                     </HBox>
                     <HBox spacing="20">
-                        <Label text="Time column" prefWidth="120" alignment="BASELINE_RIGHT">
+                        <Label text="Double null-values:" prefWidth="120" alignment="BASELINE_RIGHT">
 
                         </Label>
-                        <TextField fx:id="time">
+                        <TextField fx:id="doubleNulls">
 
                         </TextField>
-                        <Label textFill="red" fx:id="timeError" visible="false" text="Error, invalid time.">
+                        <Label textFill="red" fx:id="doubleError" visible="false">
 
                         </Label>
                     </HBox>
+                    <HBox spacing="20">
+                        <Label text="String null-values" prefWidth="120" alignment="BASELINE_RIGHT">
+
+                        </Label>
+                        <TextField fx:id="stringNulls">
+
+                        </TextField>
+                        <Label textFill="red" fx:id="stringError" visible="false">
+
+                        </Label>
+                    </HBox>
+                    <Label text="nullError">
+
+                    </Label>
                 </VBox>
-                <Button fx:id="mainRowsButton" onAction="#updateMainRows" text="Update">
+                <Button fx:id="updateNullsButton" text="Update">
 
                 </Button>
             </HBox>
@@ -73,10 +89,10 @@
                     </TableColumn>
                 </columns>
             </TableView>
-            <Label textFill="red" fx:id="mainAttrError" text="All fields are required to proceed. Please select a column for each." AnchorPane.bottomAnchor="20" AnchorPane.leftAnchor="50" visible="false">
+            <Button fx:id="defineNullsBack" onAction="#nullsBack" text="Back" AnchorPane.bottomAnchor="20" AnchorPane.leftAnchor="60" prefWidth="80" prefHeight="30">
 
-            </Label>
-            <Button fx:id="mainAttributesNext" onAction="#mainAttributesNextClicked" text="Next" AnchorPane.bottomAnchor="20" AnchorPane.rightAnchor="50" prefWidth="80" prefHeight="30">
+            </Button>
+            <Button fx:id="defineNullsNext" onAction="#nullsNext" text="Next" AnchorPane.bottomAnchor="20" AnchorPane.rightAnchor="50" prefWidth="80" prefHeight="30">
             </Button>
         </AnchorPane>
     </SplitPane>

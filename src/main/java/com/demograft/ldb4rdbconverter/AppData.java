@@ -1,6 +1,7 @@
 package com.demograft.ldb4rdbconverter;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -10,7 +11,7 @@ public class AppData {
     private static String longitude = "";
     private static String latitude = "";
     private static String time = "";
-    private static List<List<String>> examples;
+    private static List<ArrayList<String>> examples;
     private static HashMap<String, String> baseTypes = new HashMap<>();
     private static List<DataRow> GUIexamples;
     private static HashMap<String, String> typeMap = new HashMap<>();
@@ -72,11 +73,11 @@ public class AppData {
         AppData.time = time;
     }
 
-    public static List<List<String>> getExamples() {
+    public static List<ArrayList<String>> getExamples() {
         return examples;
     }
 
-    public static void setExamples(List<List<String>> examples) {
+    public static void setExamples(List<ArrayList<String>> examples) {
         AppData.examples = examples;
     }
 

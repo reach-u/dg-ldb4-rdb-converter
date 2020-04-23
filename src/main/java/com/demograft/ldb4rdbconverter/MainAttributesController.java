@@ -17,7 +17,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-public class mainAttributesController {
+public class MainAttributesController {
 
     private Stage stage;
     private Parent root;
@@ -47,7 +47,7 @@ public class mainAttributesController {
         updateTable();
     }
 
-    @FXML
+
     private void updateTable(){
         List<DataRow> newList = new ArrayList<>();
         for(int i = 0; i < AppData.getHeaderList().size(); i++){
@@ -75,9 +75,7 @@ public class mainAttributesController {
                 String previous = AppData.getLongitude();
                 map.put(previous, AppData.getBaseTypes().get(previous));
             }
-            System.out.println("Base 1: "  + AppData.getBaseTypes().get(lon));
             map.put(lon, "Double");
-            System.out.println("Base 2: "  + AppData.getBaseTypes().get(lon));
             AppData.setLongitude(lon);
             longitudeError.setVisible(false);
         }
@@ -108,7 +106,6 @@ public class mainAttributesController {
         else if(!tim.equals("") && !AppData.getHeaderList().contains(lon)){
             timeError.setVisible(true);
         }
-        AppData.setTypeMap(map);
         updateTable();
     }
     @FXML

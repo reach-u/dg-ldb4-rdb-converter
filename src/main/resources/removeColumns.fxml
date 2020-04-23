@@ -9,7 +9,7 @@
 <?import javafx.scene.control.cell.PropertyValueFactory?>
 <AnchorPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.demograft.ldb4rdbconverter.removeColumnsController"
+            fx:controller="com.demograft.ldb4rdbconverter.RemoveColumnsController"
             >
     <SplitPane dividerPositions="0.25" orientation="VERTICAL" prefHeight="600" prefWidth="700" AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0">
         <AnchorPane prefHeight="150" prefWidth="700">
@@ -24,15 +24,15 @@
                         <TextField fx:id="toBeRemoved">
 
                         </TextField>
-                        <Label textFill="red" fx:id="removeError" text="Error, Invalid header." visible="false">
-
-                        </Label>
                     </HBox>
+                    <Label fx:id="removeError" visible="false" textFill="red">
+
+                    </Label>
                 </VBox>
-                <Button fx:id="removeRowsButton" onAction="#updateRemoveRows" text="Update">
+                <Button fx:id="removeRowsButton" onAction="#removeRows" text="Remove">
 
                 </Button>
-                <Button fx:id="populateRemove" onAction="#populateRemoveRows" text="populate" AnchorPane.leftAnchor="250" AnchorPane.topAnchor="100">
+                <Button fx:id="resetButton" onAction="#resetRows" text="Reset">
 
                 </Button>
             </HBox>
@@ -57,7 +57,10 @@
                     </TableColumn>
                 </columns>
             </TableView>
-            <Button fx:id="removeRowsNext" onAction="#mainAttributesNextClicked" text="Next" AnchorPane.bottomAnchor="20" AnchorPane.rightAnchor="50" prefWidth="80" prefHeight="30">
+            <Button fx:id="removeRowsBack" onAction="#removeRowsBackClicked" text="Back" AnchorPane.bottomAnchor="20" AnchorPane.leftAnchor="60" prefWidth="80" prefHeight="30">
+
+            </Button>
+            <Button fx:id="removeRowsNext" onAction="#removeRowsNextClicked" text="Next" AnchorPane.bottomAnchor="20" AnchorPane.rightAnchor="50" prefWidth="80" prefHeight="30">
             </Button>
         </AnchorPane>
     </SplitPane>

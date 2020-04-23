@@ -51,8 +51,6 @@ public class GUIController {
     Button selectPreviousBack;
     @FXML
     Button selectNewBack;
-    @FXML
-    TextField unusedRows;
 
     private void determineInitialTypes(List<String> headers, List<String> examples){
         HashMap<String, String> map = AppData.getTypeMap();
@@ -74,7 +72,8 @@ public class GUIController {
                 map.put(headers.get(i), "Undetermined");
             }
         }
-        AppData.setBaseTypes(map);
+        HashMap<String, String> baseMap = new HashMap<>(map);
+        AppData.setBaseTypes(baseMap);
         AppData.setTypeMap(map);
     }
 
@@ -138,9 +137,9 @@ public class GUIController {
             parser.beginParsing(AppData.getInputFile());
             String[] headerArray = parser.parseNextRecord().getValues();
             int headerNr = headerArray.length;
-            List<String> headerList = Arrays.asList(headerArray);
+            List<String> headerList = new ArrayList<>(Arrays.asList(headerArray));
             AppData.setHeaderList(headerList);
-            List<List<String>> examples = new ArrayList<>();
+            List<ArrayList<String>> examples = new ArrayList<>();
             for(int i = 0; i < 3; i++){
                 String[] example = parser.parseNextRecord().getValues();
                 ArrayList<String> row = new ArrayList<>(Arrays.asList(example));
@@ -195,9 +194,5 @@ public class GUIController {
             stage.setScene(scene);
             stage.show();
         }
-    }
-    @FXML
-    private void removeRows() throws Exception {
-
     }
 }
