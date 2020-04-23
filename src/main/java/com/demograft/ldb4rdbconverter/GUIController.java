@@ -53,44 +53,6 @@ public class GUIController {
     Button selectNewBack;
     @FXML
     TextField unusedRows;
-    @FXML
-    TableView<DataRow> mainTable;
-    @FXML
-    Button mainRowsButton;
-    @FXML
-    Button mainAttributesNext;
-    @FXML
-    Button populateMain;
-    @FXML
-    TextField longitude;
-    @FXML
-    TextField latitude;
-    @FXML
-    TextField time;
-    @FXML
-    Label longitudeError;
-    @FXML
-    Label latitudeError;
-    @FXML
-    Label timeError;
-    @FXML
-    Label mainAttrError;
-
-    private void updateTable(){
-        List<DataRow> newList = new ArrayList<>();
-        for(int i = 0; i < AppData.getHeaderList().size(); i++){
-            List<String> headers = AppData.getHeaderList();
-            StringBuilder sb = new StringBuilder();
-            for(int j = 0; j < 3; j++){
-                sb.append(AppData.getExamples().get(j).get(i) + "; ");
-            }
-            DataRow row = new DataRow(headers.get(i),AppData.getTypeMap().get(headers.get(i)), sb.toString());
-            newList.add(row);
-        }
-        AppData.setGUIexamples(newList);
-        ObservableList<DataRow> olist = FXCollections.observableArrayList(newList);
-        mainTable.setItems(olist);
-    }
 
     private void determineInitialTypes(List<String> headers, List<String> examples){
         HashMap<String, String> map = AppData.getTypeMap();
@@ -235,75 +197,7 @@ public class GUIController {
         }
     }
     @FXML
-    private void removeRows() throws Exception{
+    private void removeRows() throws Exception {
 
-    }
-    @FXML
-    private void populateMainRows(){
-        ObservableList<DataRow> olist = FXCollections.observableArrayList(AppData.getGUIexamples());
-        mainTable.setItems(olist);
-        populateMain.setVisible(false);
-    }
-    @FXML
-    private void updateMainRows(){
-        String lon = longitude.getText();
-        String lat = latitude.getText();
-        String tim = time.getText();
-        HashMap<String, String> map = AppData.getTypeMap();
-        if(!lon.equals("") && AppData.getHeaderList().contains(lon)){
-            if(!AppData.getLongitude().equals("")){
-                String previous = AppData.getLongitude();
-                System.out.println("EELMINE:  " + AppData.getBaseTypes().get(previous));
-                map.put(previous, AppData.getBaseTypes().get(previous));
-                System.out.println("NÜÜD: " + map.get(previous));
-
-            }
-            map.put(lon, "Double");
-            AppData.setLongitude(lon);
-            longitudeError.setVisible(false);
-        }
-        else if(!lon.equals("") && !AppData.getHeaderList().contains(lon)){
-            longitudeError.setVisible(true);
-        }
-        if(!lat.equals("") && AppData.getHeaderList().contains(lat)){
-            if(!AppData.getLatitude().equals("")){
-                String previous = AppData.getLatitude();
-                map.put(previous, AppData.getBaseTypes().get(previous));
-            }
-            map.put(lat, "Double");
-            AppData.setLatitude(lat);
-            latitudeError.setVisible(false);
-        }
-        else if(!lat.equals("") && !AppData.getHeaderList().contains(lat)){
-            latitudeError.setVisible(true);
-        }
-        if(!tim.equals("") && AppData.getHeaderList().contains(tim)){
-            if(!AppData.getTime().equals("")){
-                String previous = AppData.getTime();
-                map.put(previous, AppData.getBaseTypes().get(previous));
-            }
-            map.put(tim, "Long");
-            AppData.setTime(tim);
-            timeError.setVisible(false);
-        }
-        else if(!tim.equals("") && !AppData.getHeaderList().contains(lon)){
-            timeError.setVisible(true);
-        }
-        AppData.setTypeMap(map);
-        updateTable();
-    }
-    @FXML
-    private void mainAttributesNextClicked() throws IOException{
-        if(!AppData.mainSet()){
-            mainAttrError.setVisible(true);
-        }
-        else {
-            mainAttrError.setVisible(false);
-            stage = (Stage) mainAttributesNext.getScene().getWindow();
-            root = FXMLLoader.load(getClass().getClassLoader().getResource("removeColumns.fxml"));
-            Scene scene = new Scene(root, 700, 600);
-            stage.setScene(scene);
-            stage.show();
-        }
     }
 }

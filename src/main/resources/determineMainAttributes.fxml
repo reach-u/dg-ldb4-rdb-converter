@@ -6,7 +6,7 @@
 
 <AnchorPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.demograft.ldb4rdbconverter.GUIController"
+            fx:controller="com.demograft.ldb4rdbconverter.mainAttributesController"
             >
     <SplitPane dividerPositions="0.25" orientation="VERTICAL" prefHeight="600" prefWidth="700" AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0">
         <AnchorPane prefHeight="150" prefWidth="700">
@@ -49,9 +49,6 @@
                     </HBox>
                 </VBox>
                 <Button fx:id="mainRowsButton" onAction="#updateMainRows" text="Update">
-
-                </Button>
-                <Button fx:id="populateMain" onAction="#populateMainRows" text="populate" AnchorPane.leftAnchor="250" AnchorPane.topAnchor="100">
 
                 </Button>
             </HBox>

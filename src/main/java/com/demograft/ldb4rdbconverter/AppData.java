@@ -11,8 +11,10 @@ public class AppData {
     private static String latitude = "";
     private static String time = "";
     private static List<List<String>> examples;
-    private static List<DataRow> GUIexamples;
     private static HashMap<String, String> baseTypes = new HashMap<>();
+    private static List<DataRow> GUIexamples;
+    private static HashMap<String, String> typeMap = new HashMap<>();
+    private static List<String> headerList;
 
     public static HashMap<String, String> getBaseTypes() {
         return baseTypes;
@@ -21,9 +23,6 @@ public class AppData {
     public static void setBaseTypes(HashMap<String, String> baseTypes) {
         AppData.baseTypes = baseTypes;
     }
-
-    private static HashMap<String, String> typeMap = new HashMap<>();
-    private static List<String> headerList;
 
     static List<String> getHeaderList() {
         return headerList;
@@ -96,6 +95,7 @@ public class AppData {
     public static void setTypeMap(HashMap<String, String> typeMap) {
         AppData.typeMap = typeMap;
     }
+
     public static boolean mainSet(){
         if(longitude.equals("") || latitude.equals("") || time.equals("")){
             return false;
