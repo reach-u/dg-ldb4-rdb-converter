@@ -11,37 +11,43 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.stage.Stage;
-import org.apache.avro.generic.GenericData;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-public class RemoveColumnsController {
+public class RowTypesController {
 
     private Stage stage;
     private Parent root;
-
 
     private HashMap<String, String> backupMap;
     private List<String> backupHeaders;
     private List<ArrayList<String>> backupExamples;
 
     @FXML
-    Button removeRowsButton;
+    private TableView<DataRow> mainTable;
     @FXML
-    TextField toBeRemoved;
+    private Button nextButton;
     @FXML
-    Label removeError;
+    private Button backButton;
     @FXML
-    Button removeRowsNext;
+    private TextField floatRows;
     @FXML
-    Button resetButton;
+    private TextField doubleRows;
     @FXML
-    Button removeRowsBack;
+    private TextField stringRows;
     @FXML
-    TableView<DataRow> mainTable;
+    private Label floatError;
+    @FXML
+    private Label doubleError;
+    @FXML
+    private Label stringError;
+    @FXML
+    private Button resetButton;
+    @FXML
+    private Button updateRowsButton;
 
     public void initialize() {
         backupMap = new HashMap<>(AppData.getTypeMap());
@@ -57,7 +63,7 @@ public class RemoveColumnsController {
     @FXML
     private void updateTable(){
         List<DataRow> newList = new ArrayList<>();
-        for(int i = 0; i < AppData.getHeaderList().size() - 1; i++){
+        for(int i = 0; i < AppData.getHeaderList().size(); i++){
             List<String> headers = AppData.getHeaderList();
             StringBuilder sb = new StringBuilder();
             for(int j = 0; j < 3; j++){
@@ -71,39 +77,55 @@ public class RemoveColumnsController {
         mainTable.setItems(olist);
     }
     @FXML
-    private void removeRowsBackClicked() throws IOException{
-        stage = (Stage) removeRowsNext.getScene().getWindow();
-        root = FXMLLoader.load(getClass().getClassLoader().getResource("determineMainAttributes.fxml"));
-        Scene scene = new Scene(root, 700, 600);
-        stage.setScene(scene);
-        stage.show();
-    }
-
-    @FXML
-    private void removeRows(){
+    private void updateRows(){
         List<String> headers = AppData.getHeaderList();
         HashMap<String, String> types = AppData.getTypeMap();
-        List<ArrayList<String>> examples = AppData.getExamples();
-        String rowString = toBeRemoved.getText();
-        String[] rows = rowString.split(",");
-        for(String row: rows){
+        String floats = floatRows.getText();
+        String[] floatrows = floats.split(",");
+        for(String row: floatrows){
             if(row.equals(AppData.getLatitude()) || row.equals(AppData.getLongitude()) || row.equals(AppData.getTime())){
-                removeError.setVisible(true);
-                removeError.setText("Cannot remove one of the main attributes");
-                return;
+                floatError.setText("Cannot change the type of main attribute.");
+                floatError.setVisible(true);
             }
             else if(!row.equals("") && !headers.contains(row)){
-                removeError.setText("Encountered an invalid header name: " + row);
-                removeError.setVisible(true);
+                floatError.setText("Encountered an invalid header name: " + row);
+                floatError.setVisible(true);
                 return;
             }
             else if(!row.equals("") && headers.contains(row)){
-                for(int i = 0; i < 3; i++){
-                    examples.get(i).remove(headers.indexOf(row));
-                }
-                types.remove(row);
-                headers.remove(row);
-                removeError.setVisible(false);
+                types.put(row, "Float");
+            }
+        }
+        String doubles = doubleRows.getText();
+        String[] doubleRows = doubles.split(",");
+        for(String row: doubleRows){
+            if(row.equals(AppData.getLatitude()) || row.equals(AppData.getLongitude()) || row.equals(AppData.getTime())){
+                doubleError.setText("Cannot change the type of main attribute.");
+                doubleError.setVisible(true);
+            }
+            else if(!row.equals("") && !headers.contains(row)){
+                doubleError.setText("Encountered an invalid header name: " + row);
+                doubleError.setVisible(true);
+                return;
+            }
+            else if(!row.equals("") && headers.contains(row)){
+                types.put(row, "Double");
+            }
+        }
+        String strings = stringRows.getText();
+        String[] stringsRows = strings.split(",");
+        for(String row: stringsRows){
+            if(row.equals(AppData.getLatitude()) || row.equals(AppData.getLongitude()) || row.equals(AppData.getTime())){
+                stringError.setText("Cannot change the type of main attribute.");
+                stringError.setVisible(true);
+            }
+            else if(!row.equals("") && !headers.contains(row)){
+                stringError.setText("Encountered an invalid header name: " + row);
+                stringError.setVisible(true);
+                return;
+            }
+            else if(!row.equals("") && headers.contains(row)){
+                types.put(row, "String");
             }
         }
         updateTable();
@@ -121,12 +143,20 @@ public class RemoveColumnsController {
         }
         AppData.setExamples(oldData);
         updateTable();
-}
+    }
 
     @FXML
-    private void removeRowsNextClicked() throws IOException {
-        stage = (Stage) removeRowsNext.getScene().getWindow();
+    private void rowTypesBackClicked() throws IOException {
+        stage = (Stage) backButton.getScene().getWindow();
         root = FXMLLoader.load(getClass().getClassLoader().getResource("defineNullValues.fxml"));
+        Scene scene = new Scene(root, 700, 600);
+        stage.setScene(scene);
+        stage.show();
+    }
+    @FXML
+    private void rowTypesNextClicked() throws IOException{
+        stage = (Stage) backButton.getScene().getWindow();
+        root = FXMLLoader.load(getClass().getClassLoader().getResource("specialRows.fxml"));
         Scene scene = new Scene(root, 700, 600);
         stage.setScene(scene);
         stage.show();

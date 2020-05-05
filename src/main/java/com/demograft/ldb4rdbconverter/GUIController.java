@@ -2,8 +2,6 @@ package com.demograft.ldb4rdbconverter;
 
 import com.univocity.parsers.csv.CsvParser;
 import com.univocity.parsers.csv.CsvParserSettings;
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -13,7 +11,6 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -25,8 +22,6 @@ public class GUIController {
     private Parent root;
 
 
-    @FXML
-    TextField newConfigFileName;
     @FXML
     Button loadButton;
     @FXML
@@ -125,12 +120,11 @@ public class GUIController {
     }
     @FXML
     private void newFileNextClicked() throws Exception{
-        if(newConfigFileName.getText().equals("") || AppData.getInputFile() == null){
-            newFileError.setText("All inputs are required");
+        if(AppData.getInputFile() == null){
+            newFileError.setText("Data file is required");
             newFileError.setVisible(true);
         }
         else{
-            AppData.setConfigFile(new File(newConfigFileName.getText()));
             CsvParserSettings settings = new CsvParserSettings();
             settings.getFormat().setLineSeparator("\n");
             CsvParser parser = new CsvParser(settings);

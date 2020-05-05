@@ -9,7 +9,8 @@
 <?import javafx.scene.control.cell.PropertyValueFactory?>
 <AnchorPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.demograft.ldb4rdbconverter.DefineNullValuesController">
+            fx:controller="com.demograft.ldb4rdbconverter.RowTypesController"
+>
     <SplitPane dividerPositions="0.25" orientation="VERTICAL" prefHeight="600" prefWidth="700" AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0">
         <AnchorPane prefHeight="150" prefWidth="700">
             <Label text="Determine default null-values used for data types. Mark no null-string values with !" style="-fx-font: 16 times-new-roman;" AnchorPane.leftAnchor="20" AnchorPane.topAnchor="20" alignment="CENTER" textAlignment="CENTER">
@@ -17,21 +18,10 @@
             <HBox AnchorPane.topAnchor="60" AnchorPane.leftAnchor="50" spacing="23">
                 <VBox>
                     <HBox spacing="20">
-                        <Label text="Long null-values:" prefWidth="120" alignment="BASELINE_RIGHT">
+                        <Label text="Float rows:" prefWidth="120" alignment="BASELINE_RIGHT">
 
                         </Label>
-                        <TextField fx:id="longNulls">
-
-                        </TextField>
-                        <Label textFill="red" fx:id="longError" visible="false">
-
-                        </Label>
-                    </HBox>
-                    <HBox spacing="20">
-                        <Label text="Float null-values:" prefWidth="120" alignment="BASELINE_RIGHT">
-
-                        </Label>
-                        <TextField fx:id="floatNulls">
+                        <TextField fx:id="floatRows">
 
                         </TextField>
                         <Label textFill="red" fx:id="floatError" visible="false">
@@ -39,10 +29,10 @@
                         </Label>
                     </HBox>
                     <HBox spacing="20">
-                        <Label text="Double null-values:" prefWidth="120" alignment="BASELINE_RIGHT">
+                        <Label text="Double rows:" prefWidth="120" alignment="BASELINE_RIGHT">
 
                         </Label>
-                        <TextField fx:id="doubleNulls">
+                        <TextField fx:id="doubleRows">
 
                         </TextField>
                         <Label textFill="red" fx:id="doubleError" visible="false">
@@ -50,10 +40,10 @@
                         </Label>
                     </HBox>
                     <HBox spacing="20">
-                        <Label text="String null-values" prefWidth="120" alignment="BASELINE_RIGHT">
+                        <Label text="String rows" prefWidth="120" alignment="BASELINE_RIGHT">
 
                         </Label>
-                        <TextField fx:id="stringNulls">
+                        <TextField fx:id="stringRows">
 
                         </TextField>
                         <Label textFill="red" fx:id="stringError" visible="false">
@@ -61,10 +51,13 @@
                         </Label>
                     </HBox>
                 </VBox>
-            </HBox>
-            <Button fx:id="updateNullsButton" onAction="#updateNulls" text="Update" AnchorPane.topAnchor="70" AnchorPane.rightAnchor="80" prefHeight="40" prefWidth="60">
+                <Button fx:id="updateRowsButton" onAction="#updateRows" text="Update">
 
-            </Button>
+                </Button>
+                <Button fx:id="resetButton" onAction="#resetRows" text="Reset types">
+
+                </Button>
+            </HBox>
         </AnchorPane>
         <AnchorPane prefHeight="450" prefWidth="700">
             <TableView fx:id="mainTable" AnchorPane.topAnchor="10" AnchorPane.leftAnchor="50" prefWidth="600" prefHeight="380">
@@ -86,10 +79,10 @@
                     </TableColumn>
                 </columns>
             </TableView>
-            <Button fx:id="defineNullsBack" onAction="#nullsBack" text="Back" AnchorPane.bottomAnchor="5" AnchorPane.leftAnchor="60" prefWidth="80" prefHeight="30">
+            <Button fx:id="backButton" onAction="#rowTypesBackClicked" text="Back" AnchorPane.bottomAnchor="20" AnchorPane.leftAnchor="60" prefWidth="80" prefHeight="30">
 
             </Button>
-            <Button fx:id="defineNullsNext" onAction="#nullsNext" text="Next" AnchorPane.bottomAnchor="5" AnchorPane.rightAnchor="50" prefWidth="80" prefHeight="30">
+            <Button fx:id="nextButton" onAction="#rowTypesNextClicked" text="Next" AnchorPane.bottomAnchor="20" AnchorPane.rightAnchor="50" prefWidth="80" prefHeight="30">
             </Button>
         </AnchorPane>
     </SplitPane>

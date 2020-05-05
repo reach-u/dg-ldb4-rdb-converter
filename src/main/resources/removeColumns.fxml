@@ -25,9 +25,6 @@
 
                         </TextField>
                     </HBox>
-                    <Label fx:id="removeError" visible="false" textFill="red">
-
-                    </Label>
                 </VBox>
                 <Button fx:id="removeRowsButton" onAction="#removeRows" text="Remove">
 
@@ -36,6 +33,9 @@
 
                 </Button>
             </HBox>
+            <Label fx:id="removeError" visible="false" textFill="red"  AnchorPane.leftAnchor="40" AnchorPane.bottomAnchor="20">
+
+            </Label>
         </AnchorPane>
         <AnchorPane prefHeight="450" prefWidth="700">
             <TableView fx:id="mainTable" AnchorPane.topAnchor="10" AnchorPane.leftAnchor="50" prefWidth="600" prefHeight="380">

@@ -16,6 +16,89 @@ public class AppData {
     private static List<DataRow> GUIexamples;
     private static HashMap<String, String> typeMap = new HashMap<>();
     private static List<String> headerList;
+    private static List<String> stringNulls = new ArrayList<>();
+    private static List<Double> doubleNulls = new ArrayList<>();
+    private static List<Long> longNulls = new ArrayList<>();
+    private static List<Float> floatNulls = new ArrayList<>();
+    private static List<String> timeRows = new ArrayList<>();
+    private static List<String> hashedRows = new ArrayList<>();
+    private static int parquetSize = 0;
+    private static int stringLimit = 0;
+
+    public static int getParquetSize() {
+        return parquetSize;
+    }
+
+    public static void setParquetSize(int parquetSize) {
+        AppData.parquetSize = parquetSize;
+    }
+
+    public static int getStringLimit() {
+        return stringLimit;
+    }
+
+    public static void setStringLimit(int stringLimit) {
+        AppData.stringLimit = stringLimit;
+    }
+
+    public static List<String> getTimeRows() {
+        return timeRows;
+    }
+
+    public static void setTimeRows(List<String> timeRows) {
+        AppData.timeRows = timeRows;
+    }
+
+    public static List<String> getHashedRows() {
+        return hashedRows;
+    }
+
+    public static void setHashedRows(List<String> hashedRows) {
+        AppData.hashedRows = hashedRows;
+    }
+
+    public static String getTimeExample() {
+        return timeExample;
+    }
+
+    public static void setTimeExample(String timeExample) {
+        AppData.timeExample = timeExample;
+    }
+
+    private static String timeExample = "";
+
+
+    public static List<String> getStringNulls() {
+        return stringNulls;
+    }
+
+    public static void setStringNulls(List<String> stringNulls) {
+        AppData.stringNulls = stringNulls;
+    }
+
+    public static List<Double> getDoubleNulls() {
+        return doubleNulls;
+    }
+
+    public static void setDoubleNulls(List<Double> doubleNulls) {
+        AppData.doubleNulls = doubleNulls;
+    }
+
+    public static List<Long> getLongNulls() {
+        return longNulls;
+    }
+
+    public static void setLongNulls(List<Long> longNulls) {
+        AppData.longNulls = longNulls;
+    }
+
+    public static List<Float> getFloatNulls() {
+        return floatNulls;
+    }
+
+    public static void setFloatNulls(List<Float> floatNulls) {
+        AppData.floatNulls = floatNulls;
+    }
 
     public static HashMap<String, String> getBaseTypes() {
         return baseTypes;
