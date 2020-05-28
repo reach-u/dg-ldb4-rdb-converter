@@ -130,12 +130,7 @@ public class Ldb4RdbConverter {
 
     private final int COL_MAX_VALUE = 1;
 
-    private String timeZone = "UTC";
-
-
-
-
-
+    private static String timeZone = "Z";
 
     private String formatName(String name){
         name = name.replaceAll("_", " ");
@@ -168,7 +163,7 @@ public class Ldb4RdbConverter {
 
     static DateTimeFormatter identifyTimeFormat(String time, String timeZone){
         try {
-            DateTimeFormatter formatter
+           DateTimeFormatter formatter
                     = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS xx");
             ZonedDateTime date = ZonedDateTime.parse(time, formatter);
             return formatter;
@@ -209,8 +204,15 @@ public class Ldb4RdbConverter {
     }
 
     static long timeToMillisecondsConverter(String time, DateTimeFormatter format) throws DateTimeParseException {
-        ZonedDateTime date = ZonedDateTime.parse(time, format);
-        return date.toInstant().toEpochMilli();
+        try{
+            ZonedDateTime date = ZonedDateTime.parse(time, format);
+            return date.toInstant().toEpochMilli();
+        }
+        catch(DateTimeParseException e){
+            LocalDateTime localdate = LocalDateTime.parse(time, format);
+            ZonedDateTime date = ZonedDateTime.of(localdate, ZoneId.of(timeZone));
+            return date.toInstant().toEpochMilli();
+        }
     }
 
     // Takes the CSV file/folder given by the command line and parses all of the records in it.
@@ -1017,7 +1019,14 @@ public class Ldb4RdbConverter {
             if(!faulty) {
                 totalRecords += 1;
                 writtenRecords += 1;
-                ZonedDateTime date = ZonedDateTime.parse(record.getString(time), timeFormatter);
+                ZonedDateTime date;
+                try {
+                    date = ZonedDateTime.parse(record.getString(time), timeFormatter);
+                }
+                catch(DateTimeParseException e){
+                    LocalDateTime localDate = LocalDateTime.parse(record.getString(time), timeFormatter);
+                    date = localDate.atZone(ZoneId.of(timeZone));
+                }
                 LocalDate localdate = date.toLocalDate();
                 if(timeData.containsKey(localdate.toString())){
                     Integer count = timeData.get(localdate.toString());

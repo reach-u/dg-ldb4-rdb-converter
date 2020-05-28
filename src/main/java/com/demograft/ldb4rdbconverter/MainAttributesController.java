@@ -75,7 +75,7 @@ public class MainAttributesController {
                 String previous = AppData.getLongitude();
                 map.put(previous, AppData.getBaseTypes().get(previous));
             }
-            map.put(lon, "Double");
+            map.put(lon, "Double(lon)");
             AppData.setLongitude(lon);
             longitudeError.setVisible(false);
         }
@@ -87,7 +87,7 @@ public class MainAttributesController {
                 String previous = AppData.getLatitude();
                 map.put(previous, AppData.getBaseTypes().get(previous));
             }
-            map.put(lat, "Double");
+            map.put(lat, "Double(lat)");
             AppData.setLatitude(lat);
             latitudeError.setVisible(false);
         }
@@ -99,7 +99,7 @@ public class MainAttributesController {
                 String previous = AppData.getTime();
                 map.put(previous, AppData.getBaseTypes().get(previous));
             }
-            map.put(tim, "Long");
+            map.put(tim, "Long(Time)");
             AppData.setTime(tim);
             timeError.setVisible(false);
         }
