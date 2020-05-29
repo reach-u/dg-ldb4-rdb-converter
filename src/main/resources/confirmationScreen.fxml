@@ -1,8 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
 
@@ -11,42 +8,15 @@
             xmlns:fx="http://javafx.com/fxml"
             fx:controller="com.demograft.ldb4rdbconverter.ConfirmationScreenController"
 >
-    <SplitPane dividerPositions="0.25" orientation="VERTICAL" prefHeight="600" prefWidth="700" AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0">
-        <AnchorPane prefHeight="150" prefWidth="700">
-            <Label text="Define the final parameters" style="-fx-font: 16 times-new-roman;" AnchorPane.leftAnchor="20" AnchorPane.topAnchor="20" alignment="CENTER" textAlignment="CENTER">
+    <SplitPane dividerPositions="0.583" prefHeight="600" prefWidth="1200" AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0">
+        <AnchorPane prefHeight="600" prefWidth="700">
+            <Label AnchorPane.topAnchor="20" AnchorPane.leftAnchor="200" text="Final configuration overview" style="-fx-font: 18 arial;">
+
             </Label>
-            <HBox AnchorPane.topAnchor="60" AnchorPane.leftAnchor="50" spacing="23">
-                <VBox>
-                    <HBox spacing="20">
-                        <Label text="Unique string limit for warning:" prefWidth="120" alignment="BASELINE_RIGHT">
+            <Label AnchorPane.topAnchor="50" AnchorPane.leftAnchor="250" text="Attributes" style="-fx-font: 18 arial;">
 
-                        </Label>
-                        <TextField fx:id="stringWarning">
-
-                        </TextField>
-                        <Label textFill="red" fx:id="limitError" visible="false">
-
-                        </Label>
-                    </HBox>
-                    <HBox spacing="20">
-                        <Label text="Size of one parquet:" prefWidth="120" alignment="BASELINE_RIGHT">
-
-                        </Label>
-                        <TextField fx:id="parquetSize">
-
-                        </TextField>
-                        <Label textFill="red" fx:id="parquetError" visible="false">
-
-                        </Label>
-                    </HBox>
-                </VBox>
-                <Button fx:id="updateRows" onAction="#update" text="Update">
-
-                </Button>
-            </HBox>
-        </AnchorPane>
-        <AnchorPane prefHeight="450" prefWidth="700">
-            <TableView fx:id="mainTable" AnchorPane.topAnchor="10" AnchorPane.leftAnchor="50" prefWidth="600" prefHeight="380">
+            </Label>
+            <TableView fx:id="mainTable" AnchorPane.topAnchor="100" AnchorPane.leftAnchor="50" prefWidth="600" prefHeight="380">
                 <columns>
                     <TableColumn text="Property name" prefWidth="180">
                         <cellValueFactory>
@@ -65,11 +35,16 @@
                     </TableColumn>
                 </columns>
             </TableView>
-            <Button fx:id="backButton" onAction="#backClicked" text="Back" AnchorPane.bottomAnchor="20" AnchorPane.leftAnchor="60" prefWidth="80" prefHeight="30">
+        </AnchorPane>
+        <AnchorPane prefHeight="600" prefWidth="700">
+            <VBox AnchorPane.topAnchor="20" AnchorPane.leftAnchor="20" spacing="5">
+                <Label text="First config">
 
-            </Button>
-            <Button fx:id="nextButton" onAction="#nextClicked" text="Next" AnchorPane.bottomAnchor="20" AnchorPane.rightAnchor="50" prefWidth="80" prefHeight="30">
-            </Button>
+                </Label>
+                <Label text="Second config">
+
+                </Label>
+            </VBox>
         </AnchorPane>
     </SplitPane>
 </AnchorPane>
