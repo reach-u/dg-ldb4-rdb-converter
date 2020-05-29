@@ -1,5 +1,9 @@
 package com.demograft.ldb4rdbconverter;
 
+import com.demograft.ldb4rdbconverter.parser.CsvInputParser;
+import com.demograft.ldb4rdbconverter.parser.InputParser;
+import com.demograft.ldb4rdbconverter.parser.InputRecord;
+import com.demograft.ldb4rdbconverter.parser.ParquetInputParser;
 import com.univocity.parsers.common.record.Record;
 import com.univocity.parsers.csv.CsvParser;
 import com.univocity.parsers.csv.CsvParserSettings;
@@ -21,10 +25,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
@@ -48,6 +49,8 @@ public class Ldb4RdbConverter {
     private List<String> columnsToRemove = new ArrayList<>();
 
     private DateTimeFormatter timeFormatter;
+
+    private boolean inputEpochInMilliseconds = false;
 
     private StringBuilder statistics = new StringBuilder();
 
@@ -166,6 +169,13 @@ public class Ldb4RdbConverter {
         converter.run();
     }
 
+    /**
+     * method tries to guess input date formatter.
+     *
+     * @param time     input time string
+     * @param timeZone timezone for case where input time doesn't have an timeZone given.
+     * @return DateTimeFormetter or null if the input time is an epoch.
+     */
     static DateTimeFormatter identifyTimeFormat(String time, String timeZone) {
         try {
             DateTimeFormatter formatter
@@ -192,9 +202,14 @@ public class Ldb4RdbConverter {
 
         }
         try {
+            Long epoch = Long.parseLong(time);
+            return null;
+        } catch (NumberFormatException e1) {
+
+        }
+        try {
             DateTimeFormatter formatter
                     = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-
 
             LocalDateTime localdate = LocalDateTime.parse(time, formatter);
             ZonedDateTime date = ZonedDateTime.of(localdate, ZoneId.of(timeZone));
@@ -204,9 +219,27 @@ public class Ldb4RdbConverter {
         }
     }
 
-    static long timeToMillisecondsConverter(String time, DateTimeFormatter format) throws DateTimeParseException {
-        ZonedDateTime date = ZonedDateTime.parse(time, format);
-        return date.toInstant().toEpochMilli();
+    static long timeToMillisecondsConverter(String time, DateTimeFormatter format, boolean inputEpochInMilliseconds) throws DateTimeParseException {
+        if (format != null) {
+            ZonedDateTime date = ZonedDateTime.parse(time, format);
+            return date.toInstant().toEpochMilli();
+        } else {
+            try {
+                if (time.length() < 10) {
+                    throw new DateTimeParseException("Couldn't parse input time to long", time, 0);
+                }
+
+                Long epoch = Long.parseLong(time);
+                if (inputEpochInMilliseconds) {
+                    return epoch;
+                } else {
+                    return epoch * 1000;
+                }
+
+            } catch (NumberFormatException e) {
+                throw new DateTimeParseException("Couldn't parse input time to long", time, 0, e);
+            }
+        }
     }
 
     // Takes the CSV file/folder given by the command line and parses all of the records in it.
@@ -314,7 +347,7 @@ public class Ldb4RdbConverter {
 
             else {
                 try {
-                    long time = timeToMillisecondsConverter(example, timeFormatter);
+                    long time = timeToMillisecondsConverter(example, timeFormatter, inputEpochInMilliseconds);
                     jo.put("name", headername);
                     JSONArray typelist = new JSONArray();
                     typelist.add("null");
@@ -330,9 +363,10 @@ public class Ldb4RdbConverter {
                         typelist.add("float");
                         jo.put("type", typelist);
                     } catch (NumberFormatException e2) {
-                        if (example.equals("")) {
-                            throw new NullPointerException();
-                        }
+                        // if first row is empty, it should guess String not throw that column away.
+                        // if (example.equals("")) {
+                        //     throw new NullPointerException();
+                        //}
                         JSONArray typelist = new JSONArray();
                         jo.put("name", headername);
                         typelist.add("null");
@@ -633,7 +667,7 @@ public class Ldb4RdbConverter {
         return hashNumber;
     }
 
-    private GenericData.Record convertToParquetRecord(Schema schema, Record record) {
+    private GenericData.Record convertToParquetRecord(Schema schema, InputRecord record) {
         boolean faulty = false;
         GenericRecordBuilder genericRecordBuilder = new GenericRecordBuilder(schema);
         for (Schema.Field field : schema.getFields()) {
@@ -664,7 +698,7 @@ public class Ldb4RdbConverter {
                             if (record.getString(time).equals("")) {
                                 throw new NullPointerException();
                             }
-                            Long timeVal = timeToMillisecondsConverter(record.getString(time), timeFormatter);
+                            Long timeVal = timeToMillisecondsConverter(record.getString(time), timeFormatter, inputEpochInMilliseconds);
                             if (rowNulls.containsKey(field.name())) {
                                 if (checkForNullLong(timeVal, field.name()) == null) {
                                     throw new NullPointerException();
@@ -719,7 +753,7 @@ public class Ldb4RdbConverter {
                     } else {
                         // Could be null or long
                         try {
-                            Long date = timeToMillisecondsConverter(record.getString(field.name()), timeFormatter);
+                            Long date = timeToMillisecondsConverter(record.getString(field.name()), timeFormatter, inputEpochInMilliseconds);
                             if (rowNulls.containsKey(field.name())) {
                                 if (checkForNullLong(date, field.name()) == null) {
                                     throw new NullPointerException();
@@ -747,7 +781,7 @@ public class Ldb4RdbConverter {
                                 }
                                 Integer[] stat = statsTable.get(field.name());
                                 stat[COL_NON_NULL_VALUES] += 1;
-                                if (number == 0L) {
+                                if (number == null || number == 0L) {
                                     stat[COL_ZERO_VALUES] += 1;
                                 }
                                 statsTable.put(field.name(), stat);
@@ -967,8 +1001,22 @@ public class Ldb4RdbConverter {
         if (!faulty) {
             totalRecords += 1;
             writtenRecords += 1;
-            ZonedDateTime date = ZonedDateTime.parse(record.getString(time), timeFormatter);
-            LocalDate localdate = date.toLocalDate();
+            LocalDate localdate;
+            if (timeFormatter != null) {
+                ZonedDateTime date = ZonedDateTime.parse(record.getString(time), timeFormatter);
+                localdate = date.toLocalDate();
+            } else {
+                long epoch = Long.parseLong(record.getString(time));
+                if (inputEpochInMilliseconds) {
+                    Instant instant = Instant.ofEpochMilli(epoch);
+                    ZonedDateTime date = ZonedDateTime.ofInstant(instant, ZoneId.of(timeZone));
+                    localdate = date.toLocalDate();
+                } else {
+                    Instant instant = Instant.ofEpochSecond(epoch);
+                    ZonedDateTime date = ZonedDateTime.ofInstant(instant, ZoneId.of(timeZone));
+                    localdate = date.toLocalDate();
+                }
+            }
             if (timeData.containsKey(localdate.toString())) {
                 Integer count = timeData.get(localdate.toString());
                 count += 1;
@@ -1029,34 +1077,60 @@ public class Ldb4RdbConverter {
         }
         readConfigFile();
         List<File> csvFiles = new ArrayList<>();
+        List<File> parquetFiles = new ArrayList<>();
 
         if (!inputFile.isDirectory()) {
-            csvFiles.add(inputFile);
+            String fileName = inputFile.getName();
+            if (fileName.endsWith(".csv")) {
+                csvFiles.add(inputFile);
+            } else if (fileName.endsWith(".parquet")) {
+                parquetFiles.add(inputFile);
+            } else {
+                throw new RuntimeException(String.format("File {} has an unknown extension", fileName));
+            }
         } else {
             try {
                 for (File file : inputFile.listFiles()) {
-                    if (file.getName().endsWith(".csv")) {
+                    String fileName = file.getName();
+                    if (fileName.endsWith(".csv")) {
                         csvFiles.add(file);
+                    } else if (fileName.endsWith(".parquet")) {
+                        parquetFiles.add(inputFile);
                     }
                 }
             } catch (NullPointerException e) {
                 log.info("Error finding the file/directory, please recheck the file name and make sure this file or directory exists.");
             }
         }
-        CsvParserSettings settings = new CsvParserSettings();
-        settings.getFormat().setLineSeparator("\n");
-        CsvParser parser = new CsvParser(settings);
-
-
-        File exampleFile = csvFiles.get(0);
+        if (csvFiles.size() > 0 && parquetFiles.size() > 0) {
+            throw new RuntimeException("Input data can'be be in CSV and Parquet files at the same time. Input directory should contain only one of these types.");
+        }
+        InputParser parser;
+        File exampleFile;
+        List<File> inputFiles;
+        if (csvFiles.size() > 0) {
+            parser = new CsvInputParser();
+            exampleFile = csvFiles.get(0);
+            inputFiles = csvFiles;
+        } else if (parquetFiles.size() > 0) {
+            parser = new ParquetInputParser();
+            exampleFile = parquetFiles.get(0);
+            inputFiles = parquetFiles;
+        } else {
+            throw new RuntimeException(String.format("Input file {} doesn't have a valid input type", inputFile));
+        }
         parser.beginParsing(exampleFile);
-        String[] headerArray = parser.parseNextRecord().getValues();
+        String[] headerArray = parser.getHeader();
         List<String> headerList = Arrays.asList(headerArray);
-        Record exampleRow = parser.parseNextRecord();
+        InputRecord exampleRow = parser.parseNextRecord();
         String[] exampleArray = exampleRow.getValues();
         parser.stopParsing();
         checkValidity(headerList);
-        timeFormatter = identifyTimeFormat(exampleRow.getString(time), timeZone);
+        String timeString = exampleRow.getString(time);
+        timeFormatter = identifyTimeFormat(timeString, timeZone);
+        if (timeFormatter == null && timeString.length() > 10) {
+            inputEpochInMilliseconds = true;
+        }
         JSONObject mainjson = createJSONFromCSVRecords(headerArray, exampleArray);
         hashMapCounters = new long[hashColumns.size()];
         for (int i = 0; i < hashColumns.size(); i++) {
@@ -1081,10 +1155,10 @@ public class Ldb4RdbConverter {
             }
         }
         if (!start_time.equals("")) {
-            startTimeEpoch = timeToMillisecondsConverter(start_time, timeFormatter);
+            startTimeEpoch = timeToMillisecondsConverter(start_time, timeFormatter, inputEpochInMilliseconds);
         }
         if (!end_time.equals("")) {
-            endTimeEpoch = timeToMillisecondsConverter(end_time, timeFormatter);
+            endTimeEpoch = timeToMillisecondsConverter(end_time, timeFormatter, inputEpochInMilliseconds);
         }
 
         /* CSV -> JSON -> Schema -> Record -> Parquetfile
@@ -1109,10 +1183,9 @@ public class Ldb4RdbConverter {
                     .withRowGroupSize(blockSize)
                     .withPageSize(pageSize)
                     .build();
-            for (File file : csvFiles) {
+            for (File file : inputFiles) {
                 parser.beginParsing(file);
-                // Remove the header row
-                Record record = parser.parseNextRecord();
+                InputRecord record;
                 try {
                     while ((record = parser.parseNextRecord()) != null) {
                         GenericData.Record toWrite = convertToParquetRecord(avroSchema, record);
@@ -1135,6 +1208,7 @@ public class Ldb4RdbConverter {
                     }
                 } catch (NullPointerException e) {
                     log.info("Error. Encountered an empty file or a file with only a header row. File name is: " + file.getName());
+                    e.printStackTrace();
                 } finally {
                     files += 1;
                     parser.stopParsing();
