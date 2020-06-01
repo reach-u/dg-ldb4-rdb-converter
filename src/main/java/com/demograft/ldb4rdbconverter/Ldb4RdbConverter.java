@@ -44,6 +44,8 @@ public class Ldb4RdbConverter {
 
     private DateTimeFormatter timeFormatter;
 
+    private boolean inputEpochInMilliseconds = false;
+
     private StringBuilder statistics = new StringBuilder();
 
     private final String[] propertyNames = new String[]{"input-file","output-file","stats-file","latitude","longitude","time","start-time","end-time","columns-to-map-long",
@@ -161,7 +163,14 @@ public class Ldb4RdbConverter {
         converter.run();
     }
 
-    static DateTimeFormatter identifyTimeFormat(String time, String timeZone){
+    /**
+     * method tries to guess input date formatter.
+     *
+     * @param time     input time string
+     * @param timeZone timezone for case where input time doesn't have an timeZone given.
+     * @return DateTimeFormetter or null if the input time is an epoch.
+     */
+    static DateTimeFormatter identifyTimeFormat(String time, String timeZone) {
         try {
            DateTimeFormatter formatter
                     = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS xx");
@@ -185,8 +194,13 @@ public class Ldb4RdbConverter {
 
             ZonedDateTime date = ZonedDateTime.parse(time, formatter);
             return formatter;
+        } catch (DateTimeParseException e1) {
+
         }
-        catch(DateTimeParseException e1){
+        try {
+            Long epoch = Long.parseLong(time);
+            return null;
+        } catch (NumberFormatException e1) {
 
         }
         try {
@@ -203,15 +217,26 @@ public class Ldb4RdbConverter {
         }
     }
 
-    static long timeToMillisecondsConverter(String time, DateTimeFormatter format) throws DateTimeParseException {
-        try{
+    static long timeToMillisecondsConverter(String time, DateTimeFormatter format, boolean inputEpochInMilliseconds) throws DateTimeParseException {
+        if (format != null) {
             ZonedDateTime date = ZonedDateTime.parse(time, format);
             return date.toInstant().toEpochMilli();
-        }
-        catch(DateTimeParseException e){
-            LocalDateTime localdate = LocalDateTime.parse(time, format);
-            ZonedDateTime date = ZonedDateTime.of(localdate, ZoneId.of(timeZone));
-            return date.toInstant().toEpochMilli();
+        } else {
+            try {
+                if (time.length() < 10) {
+                    throw new DateTimeParseException("Couldn't parse input time to long", time, 0);
+                }
+
+                Long epoch = Long.parseLong(time);
+                if (inputEpochInMilliseconds) {
+                    return epoch;
+                } else {
+                    return epoch * 1000;
+                }
+
+            } catch (NumberFormatException e) {
+                throw new DateTimeParseException("Couldn't parse input time to long", time, 0, e);
+            }
         }
     }
 
@@ -328,7 +353,7 @@ public class Ldb4RdbConverter {
 
             else{
                 try {
-                    long time = timeToMillisecondsConverter(example, timeFormatter);
+                    long time = timeToMillisecondsConverter(example, timeFormatter,inputEpochInMilliseconds);
                     jo.put("name", headername);
                     JSONArray typelist = new JSONArray();
                     typelist.add("null");
@@ -691,7 +716,7 @@ public class Ldb4RdbConverter {
                                 if(record.getString(time).equals("")){
                                     throw new NullPointerException();
                                 }
-                                Long timeVal = timeToMillisecondsConverter(record.getString(time), timeFormatter);
+                                Long timeVal = timeToMillisecondsConverter(record.getString(time), timeFormatter,inputEpochInMilliseconds);
                                 if(rowNulls.containsKey(field.name())){
                                     if(checkForNullLong(timeVal, field.name()) == null){
                                         throw new NullPointerException();
@@ -751,7 +776,7 @@ public class Ldb4RdbConverter {
                         else {
                              // Could be null or long
                                 try {
-                                    Long date = timeToMillisecondsConverter(record.getString(field.name()), timeFormatter);
+                                    Long date = timeToMillisecondsConverter(record.getString(field.name()), timeFormatter,inputEpochInMilliseconds);
                                     if(rowNulls.containsKey(field.name())){
                                         if(checkForNullLong(date, field.name()) == null){
                                             throw new NullPointerException();
@@ -1019,6 +1044,8 @@ public class Ldb4RdbConverter {
             if(!faulty) {
                 totalRecords += 1;
                 writtenRecords += 1;
+                LocalDate localdate;
+                if (timeFormatter != null) {
                 ZonedDateTime date;
                 try {
                     date = ZonedDateTime.parse(record.getString(time), timeFormatter);
@@ -1027,7 +1054,19 @@ public class Ldb4RdbConverter {
                     LocalDateTime localDate = LocalDateTime.parse(record.getString(time), timeFormatter);
                     date = localDate.atZone(ZoneId.of(timeZone));
                 }
-                LocalDate localdate = date.toLocalDate();
+                localdate = date.toLocalDate();
+                } else {
+                    long epoch = Long.parseLong(record.getString(time));
+                    if (inputEpochInMilliseconds) {
+                        Instant instant = Instant.ofEpochMilli(epoch);
+                        ZonedDateTime date = ZonedDateTime.ofInstant(instant, ZoneId.of(timeZone));
+                        localdate = date.toLocalDate();
+                    } else {
+                        Instant instant = Instant.ofEpochSecond(epoch);
+                        ZonedDateTime date = ZonedDateTime.ofInstant(instant, ZoneId.of(timeZone));
+                        localdate = date.toLocalDate();
+                    }
+                }
                 if(timeData.containsKey(localdate.toString())){
                     Integer count = timeData.get(localdate.toString());
                     count += 1;
@@ -1110,6 +1149,7 @@ public class Ldb4RdbConverter {
         }
         CsvParserSettings settings = new CsvParserSettings();
         settings.getFormat().setLineSeparator("\n");
+        settings.setMaxColumns(1000);;
         CsvParser parser = new CsvParser(settings);
 
 
@@ -1121,7 +1161,11 @@ public class Ldb4RdbConverter {
         String[] exampleArray = exampleRow.getValues();
         parser.stopParsing();
         checkValidity(headerList);
-        timeFormatter = identifyTimeFormat(exampleRow.getString(time), timeZone);
+        String timeString = exampleRow.getString(time);
+        timeFormatter = identifyTimeFormat(timeString, timeZone);
+        if (timeFormatter == null && timeString.length() > 10) {
+            inputEpochInMilliseconds = true;
+        }
         JSONObject mainjson = createJSONFromCSVRecords(headerArray, exampleArray);
         hashMapCounters = new long[hashColumns.size()];
         for (int i = 0; i < hashColumns.size(); i++){
@@ -1146,10 +1190,10 @@ public class Ldb4RdbConverter {
             }
         }
         if(!start_time.equals("")) {
-            startTimeEpoch = timeToMillisecondsConverter(start_time, timeFormatter);
+            startTimeEpoch = timeToMillisecondsConverter(start_time, timeFormatter,inputEpochInMilliseconds);
         }
         if(!end_time.equals("")){
-            endTimeEpoch = timeToMillisecondsConverter(end_time, timeFormatter);
+            endTimeEpoch = timeToMillisecondsConverter(end_time, timeFormatter,inputEpochInMilliseconds);
         }
 
         /* CSV -> JSON -> Schema -> Record -> Parquetfile
