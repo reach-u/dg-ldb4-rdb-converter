@@ -219,8 +219,14 @@ public class Ldb4RdbConverter {
 
     static long timeToMillisecondsConverter(String time, DateTimeFormatter format, boolean inputEpochInMilliseconds) throws DateTimeParseException {
         if (format != null) {
-            ZonedDateTime date = ZonedDateTime.parse(time, format);
-            return date.toInstant().toEpochMilli();
+            try {
+                ZonedDateTime date = ZonedDateTime.parse(time, format);
+                return date.toInstant().toEpochMilli();
+            } catch (DateTimeParseException e) {
+                LocalDateTime localdate = LocalDateTime.parse(time, format);
+                ZonedDateTime date = ZonedDateTime.of(localdate, ZoneId.of(timeZone));
+                return date.toInstant().toEpochMilli();
+            }
         } else {
             try {
                 if (time.length() < 10) {
