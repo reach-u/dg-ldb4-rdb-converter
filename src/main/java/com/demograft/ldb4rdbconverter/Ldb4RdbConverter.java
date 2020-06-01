@@ -1,13 +1,20 @@
 package com.demograft.ldb4rdbconverter;
 
+import com.demograft.ldb4rdbconverter.parser.CsvInputParser;
+import com.demograft.ldb4rdbconverter.parser.InputParser;
+import com.demograft.ldb4rdbconverter.parser.InputRecord;
+import com.demograft.ldb4rdbconverter.parser.ParquetInputParser;
 import com.univocity.parsers.common.record.Record;
 import com.univocity.parsers.csv.CsvParser;
 import com.univocity.parsers.csv.CsvParserSettings;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
+import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.kohsuke.args4j.CmdLineException;
@@ -19,10 +26,6 @@ import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
-
-import org.apache.avro.Schema;
-import org.apache.parquet.hadoop.metadata.CompressionCodecName;
-import org.apache.parquet.avro.AvroParquetWriter;
 
 @Slf4j
 public class Ldb4RdbConverter {
@@ -688,11 +691,11 @@ public class Ldb4RdbConverter {
         return hashNumber;
     }
 
-    private GenericData.Record convertToParquetRecord(Schema schema, Record record){
-            boolean faulty = false;
-            GenericRecordBuilder genericRecordBuilder = new GenericRecordBuilder(schema);
-            for (Schema.Field field: schema.getFields()) {
-                Schema subschema = field.schema();
+    private GenericData.Record convertToParquetRecord(Schema schema, InputRecord record) {
+        boolean faulty = false;
+        GenericRecordBuilder genericRecordBuilder = new GenericRecordBuilder(schema);
+        for (Schema.Field field : schema.getFields()) {
+            Schema subschema = field.schema();
 
                 String targetName;
 
@@ -812,7 +815,7 @@ public class Ldb4RdbConverter {
                                         }
                                         Integer[] stat = statsTable.get(field.name());
                                         stat[COL_NON_NULL_VALUES] += 1;
-                                        if(number == 0L){
+                                        if (number == null || number == 0L) {
                                             stat[COL_ZERO_VALUES] += 1;
                                         }
                                         statsTable.put(field.name(), stat);
@@ -1137,15 +1140,25 @@ public class Ldb4RdbConverter {
         }
         readConfigFile();
         List<File> csvFiles = new ArrayList<>();
+        List<File> parquetFiles = new ArrayList<>();
 
-        if(!inputFile.isDirectory()){
-            csvFiles.add(inputFile);
-        }
-        else {
+        if (!inputFile.isDirectory()) {
+            String fileName = inputFile.getName();
+            if (fileName.endsWith(".csv")) {
+                csvFiles.add(inputFile);
+            } else if (fileName.endsWith(".parquet")) {
+                parquetFiles.add(inputFile);
+            } else {
+                throw new RuntimeException(String.format("File {} has an unknown extension", fileName));
+            }
+        } else {
             try {
                 for (File file : inputFile.listFiles()) {
-                    if (file.getName().endsWith(".csv")) {
+                    String fileName = file.getName();
+                    if (fileName.endsWith(".csv")) {
                         csvFiles.add(file);
+                    } else if (fileName.endsWith(".parquet")) {
+                        parquetFiles.add(inputFile);
                     }
                 }
             }
@@ -1153,17 +1166,27 @@ public class Ldb4RdbConverter {
                 log.info("Error finding the file/directory, please recheck the file name and make sure this file or directory exists.");
             }
         }
-        CsvParserSettings settings = new CsvParserSettings();
-        settings.getFormat().setLineSeparator("\n");
-        settings.setMaxColumns(1000);;
-        CsvParser parser = new CsvParser(settings);
-
-
-        File exampleFile = csvFiles.get(0);
+        if (csvFiles.size() > 0 && parquetFiles.size() > 0) {
+            throw new RuntimeException("Input data can'be be in CSV and Parquet files at the same time. Input directory should contain only one of these types.");
+        }
+        InputParser parser;
+        File exampleFile;
+        List<File> inputFiles;
+        if (csvFiles.size() > 0) {
+            parser = new CsvInputParser();
+            exampleFile = csvFiles.get(0);
+            inputFiles = csvFiles;
+        } else if (parquetFiles.size() > 0) {
+            parser = new ParquetInputParser();
+            exampleFile = parquetFiles.get(0);
+            inputFiles = parquetFiles;
+        } else {
+            throw new RuntimeException(String.format("Input file {} doesn't have a valid input type", inputFile));
+        }
         parser.beginParsing(exampleFile);
-        String[] headerArray = parser.parseNextRecord().getValues();
+        String[] headerArray = parser.getHeader();
         List<String> headerList = Arrays.asList(headerArray);
-        Record exampleRow = parser.parseNextRecord();
+        InputRecord exampleRow = parser.parseNextRecord();
         String[] exampleArray = exampleRow.getValues();
         parser.stopParsing();
         checkValidity(headerList);
@@ -1224,12 +1247,11 @@ public class Ldb4RdbConverter {
                     .withRowGroupSize(blockSize)
                     .withPageSize(pageSize)
                     .build();
-            for(File file: csvFiles) {
+            for (File file : inputFiles) {
                 parser.beginParsing(file);
-                // Remove the header row
-                Record record = parser.parseNextRecord();
-                try{
-                    while((record = parser.parseNextRecord()) != null) {
+                InputRecord record;
+                try {
+                    while ((record = parser.parseNextRecord()) != null) {
                         GenericData.Record toWrite = convertToParquetRecord(avroSchema, record);
                         if (toWrite != null) {
                             if(parquet_size > 0 && written >= parquet_size){
