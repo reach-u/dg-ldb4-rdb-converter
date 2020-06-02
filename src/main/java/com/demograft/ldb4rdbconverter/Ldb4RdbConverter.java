@@ -51,10 +51,14 @@ public class Ldb4RdbConverter {
 
     private StringBuilder statistics = new StringBuilder();
 
-    private final String[] propertyNames = new String[]{"input-file","output-file","stats-file","latitude","longitude","time","start-time","end-time","columns-to-map-long",
+    private final String[] propertyNames = new String[]{"input-file","output-file","stats-file","latitude","longitude","time","start-time","end-time","columns-to-map-long", "headers",
     "long-null-values", "double-null-values", "float-null-values", "long-columns", "float-columns", "double-columns", "string-columns", "time-columns", "parquet-size","excluded","unique-strings","timezone"};
 
     private final Set<String> propertySet = new HashSet<>(Arrays.asList(propertyNames));
+
+    private String[] headerArray;
+
+    private List<String> headers = new ArrayList<>();
 
     private List<String> hashColumns = new ArrayList<>();
 
@@ -89,6 +93,8 @@ public class Ldb4RdbConverter {
     private int parquet_size = 0;
 
     private int uniqueMax = Integer.MAX_VALUE;
+
+    private boolean predefinedHeaders = false;
 
     /* Statistics look as follows: 4 numbers for each row, they indicate:
         1. Number of non-null values
@@ -661,6 +667,13 @@ public class Ldb4RdbConverter {
                 string_columns.add(column.trim());
             }
         }
+        if(defaultProp.containsKey("headers")){
+            String headerInfo = defaultProp.getProperty("headers").trim();
+            predefinedHeaders = true;
+            String[] headerArray = headerInfo.split(",");
+            this.headerArray = headerArray;
+            this.headers = new ArrayList<>(Arrays.asList(headerArray));
+        }
 
         if(defaultProp.containsKey("stats-file")) {
             statsFile = defaultProp.getProperty("stats-file");
@@ -1164,7 +1177,7 @@ public class Ldb4RdbConverter {
                     if (fileName.endsWith(".csv")) {
                         csvFiles.add(file);
                     } else if (fileName.endsWith(".parquet")) {
-                        parquetFiles.add(inputFile);
+                        parquetFiles.add(file);
                     }
                 }
             }
@@ -1190,12 +1203,15 @@ public class Ldb4RdbConverter {
             throw new RuntimeException(String.format("Input file {} doesn't have a valid input type", inputFile));
         }
         parser.beginParsing(exampleFile);
-        String[] headerArray = parser.getHeader();
-        List<String> headerList = Arrays.asList(headerArray);
+
+        if(headers.size()==0){
+            this.headerArray = parser.getHeader();
+            this.headers = Arrays.asList(headerArray);
+        }
         InputRecord exampleRow = parser.parseNextRecord();
         String[] exampleArray = exampleRow.getValues();
         parser.stopParsing();
-        checkValidity(headerList);
+        checkValidity(this.headers);
         String timeString = exampleRow.getString(time);
         timeFormatter = identifyTimeFormat(timeString, timeZone);
         if (timeFormatter == null && timeString.length() > 10) {
