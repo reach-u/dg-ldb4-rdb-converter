@@ -302,55 +302,94 @@ public class Ldb4RdbConverter {
         }
     }
 
-    private JSONObject createJSONFromCSVRecords(String[] headerrow, String[] examplerow){
-        JSONObject mainjson = new JSONObject();
-        mainjson.put("name", "locationrecord");
-        mainjson.put("type", "record");
-        mainjson.put("namespace", "com.demograft.ldb4rdbconverter.generated");
-        JSONArray list = new JSONArray();
-        for(int i = 0; i < headerrow.length; i++){
-            boolean missing = false;
-            String headername = headerrow[i].trim();
-            String example = examplerow[i];
-            JSONObject jo = new JSONObject();
-            // The three most important rows, longitude, latitude and time.
-            if(headername.equals(longitude)){
-                jo.put("name", "lon");
-                jo.put("type", "double");
-            }
-            else if(headername.equals(latitude)){
-                jo.put("name", "lat");
-                jo.put("type", "double");
-            }
-            else if(headername.equals(time)){
-                jo.put("name", "time");
-                jo.put("type", "long");
-            }
-
-            // Predefined rows
-
-            else if(long_columns.contains(headername) || time_columns.contains(headername)){
-                jo.put("name", headername);
-                JSONArray typelist = new JSONArray();
-                typelist.add("null");
-                typelist.add("long");
-                jo.put("type", typelist);
-            }
-            else if(float_columns.contains(headername)){
+    private JSONObject determineType(String headername, String example){
+        JSONObject jo = new JSONObject();
+        try {
+            long time = timeToMillisecondsConverter(example, timeFormatter,inputEpochInMilliseconds);
+            jo.put("name", headername);
+            JSONArray typelist = new JSONArray();
+            typelist.add("null");
+            typelist.add("long");
+            jo.put("type", typelist);
+            time_columns.add(headername);
+        } catch (DateTimeParseException e1) {
+            try {
+                float data = Float.parseFloat(example);
                 jo.put("name", headername);
                 JSONArray typelist = new JSONArray();
                 typelist.add("null");
                 typelist.add("float");
                 jo.put("type", typelist);
+            } catch (NumberFormatException e2) {
+                JSONArray typelist = new JSONArray();
+                jo.put("name", headername);
+                typelist.add("null");
+                if (hashColumns.contains(headername)) {
+                    typelist.add("long");
+                } else {
+                    typelist.add("string");
+                }
+                jo.put("type", typelist);
             }
-            else if(double_columns.contains(headername)){
+        }
+
+        // All undefinable data types are marked as strings.
+
+        catch (NullPointerException e1){
+            jo.put("name", headername);
+            JSONArray typelist = new JSONArray();
+            typelist.add("null");
+            typelist.add("string");
+            jo.put("type", typelist);
+        }
+        return jo;
+    }
+
+    private JSONObject createJSONFromCSVRecords(String[] headerrow, String[] examplerow) {
+        JSONObject mainjson = new JSONObject();
+        mainjson.put("name", "locationrecord");
+        mainjson.put("type", "record");
+        mainjson.put("namespace", "com.demograft.ldb4rdbconverter.generated");
+        JSONArray list = new JSONArray();
+        for (int i = 0; i < headerrow.length; i++) {
+            String headername = headerrow[i].trim();
+            String example = examplerow[i];
+            JSONObject jo = new JSONObject();
+
+            // Check if it is one of the three important rows: longitude, latitude and time.
+
+            if (headername.equals(longitude)) {
+                jo.put("name", "lon");
+                jo.put("type", "double");
+            } else if (headername.equals(latitude)) {
+                jo.put("name", "lat");
+                jo.put("type", "double");
+            } else if (headername.equals(time)) {
+                jo.put("name", "time");
+                jo.put("type", "long");
+            }
+
+            // Then check if it is from predefined columns
+
+            else if (long_columns.contains(headername) || time_columns.contains(headername)) {
+                jo.put("name", headername);
+                JSONArray typelist = new JSONArray();
+                typelist.add("null");
+                typelist.add("long");
+                jo.put("type", typelist);
+            } else if (float_columns.contains(headername)) {
+                jo.put("name", headername);
+                JSONArray typelist = new JSONArray();
+                typelist.add("null");
+                typelist.add("float");
+                jo.put("type", typelist);
+            } else if (double_columns.contains(headername)) {
                 jo.put("name", headername);
                 JSONArray typelist = new JSONArray();
                 typelist.add("null");
                 typelist.add("double");
                 jo.put("type", typelist);
-            }
-            else if(string_columns.contains(headername)){
+            } else if (string_columns.contains(headername)) {
                 jo.put("name", headername);
                 JSONArray typelist = new JSONArray();
                 typelist.add("null");
@@ -358,50 +397,17 @@ public class Ldb4RdbConverter {
                 jo.put("type", typelist);
             }
 
-            // Try to determine column type
+            // Then try to determine column type
 
-            else{
-                try {
-                    long time = timeToMillisecondsConverter(example, timeFormatter,inputEpochInMilliseconds);
-                    jo.put("name", headername);
-                    JSONArray typelist = new JSONArray();
-                    typelist.add("null");
-                    typelist.add("long");
-                    jo.put("type", typelist);
-                    time_columns.add(headername);
-                } catch (DateTimeParseException e1) {
-                    try {
-                        float data = Float.parseFloat(example);
-                        jo.put("name", headername);
-                        JSONArray typelist = new JSONArray();
-                        typelist.add("null");
-                        typelist.add("float");
-                        jo.put("type", typelist);
-                    } catch (NumberFormatException e2) {
-                        if(example.equals("")){
-                            throw new NullPointerException();
-                        }
-                        JSONArray typelist = new JSONArray();
-                        jo.put("name", headername);
-                        typelist.add("null");
-                        if(hashColumns.contains(headername)){
-                            typelist.add("long");
-                        }
-                        else{
-                            typelist.add("string");
-                        }
-                        jo.put("type", typelist);
-                    }
-                } catch (NullPointerException e3) {
-                   missing = true;
-                }
+            else {
+                jo = determineType(headername, example);
             }
-            if(!columnsToRemove.contains(headername) && !missing){
-                list.add(jo);
+
+            if (!columnsToRemove.contains(headername)) {  // If not manually excluded
+                    list.add(jo);
             }
         }
-
-        mainjson.put("fields",list);
+        mainjson.put("fields", list);
         return mainjson;
     }
 
