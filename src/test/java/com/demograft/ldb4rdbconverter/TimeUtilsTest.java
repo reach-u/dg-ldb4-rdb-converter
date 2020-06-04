@@ -6,7 +6,7 @@ import java.time.format.DateTimeFormatter;
 
 import static org.junit.Assert.assertEquals;
 
-public class Ldb4RdbConverterTest {
+public class TimeUtilsTest {
 
 
     private final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS xx");
