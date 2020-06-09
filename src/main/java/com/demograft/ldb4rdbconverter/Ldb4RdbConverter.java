@@ -60,6 +60,8 @@ public class Ldb4RdbConverter {
 
     private String[] headerArray;
 
+    private List<String> examples;
+
     private List<String> headers = new ArrayList<>();
 
     private List<String> hashColumns = new ArrayList<>();
@@ -353,15 +355,15 @@ public class Ldb4RdbConverter {
         return jo;
     }
 
-    private JSONObject createJSONFromCSVRecords(String[] headerrow, String[] examplerow) {
+    private JSONObject createJSONFromCSVRecords(List<String> headerrow, List<String> examplerow) {
         JSONObject mainjson = new JSONObject();
         mainjson.put("name", "locationrecord");
         mainjson.put("type", "record");
         mainjson.put("namespace", "com.demograft.ldb4rdbconverter.generated");
         JSONArray list = new JSONArray();
-        for (int i = 0; i < headerrow.length; i++) {
-            String headername = headerrow[i].trim();
-            String example = examplerow[i];
+        for (int i = 0; i < headerrow.size(); i++) {
+            String headername = headerrow.get(i).trim();
+            String example = examplerow.get(i);
             JSONObject jo = new JSONObject();
 
             // Check if it is one of the three important rows: longitude, latitude and time.
@@ -1194,10 +1196,11 @@ public class Ldb4RdbConverter {
         List<File> inputFiles;
         if (csvFiles.size() > 0) {
             if(predefinedHeaders){
-                parser = new CsvInputParser(headerArray, this.columnsToRemove);
+                parser = new CsvInputParser(headerArray);
+                headers = Arrays.asList(headerArray);
             }
             else{
-                parser = new CsvInputParser(this.columnsToRemove);
+                parser = new CsvInputParser();
             }
             exampleFile = csvFiles.get(0);
             inputFiles = csvFiles;
@@ -1209,17 +1212,31 @@ public class Ldb4RdbConverter {
             throw new RuntimeException(String.format("Input file {} doesn't have a valid input type", inputFile));
         }
         parser.beginParsing(exampleFile);
-
+        if(!predefinedHeaders){
+            InputRecord headerrow = parser.parseNextRecord();
+            headerArray = headerrow.getValues();
+            headers = Arrays.asList(headerArray);
+        }
         InputRecord exampleRow = parser.parseNextRecord();
         String[] exampleArray = exampleRow.getValues();
+        examples = Arrays.asList(exampleArray);
+
         parser.stopParsing();
-        checkValidity(Arrays.asList(parser.getHeader()));
+
+        //Remove excluded rows and their examples
+        for(String row: headers){
+            if (columnsToRemoveList.contains(row)){
+                headers.remove(row);
+                examples.remove(headers.indexOf(row));
+            }
+        }
+
         String timeString = exampleRow.getString(time);
         timeFormatter = identifyTimeFormat(timeString, timeZone);
         if (timeFormatter == null && timeString.length() > 10) {
             inputEpochInMilliseconds = true;
         }
-        JSONObject mainjson = createJSONFromCSVRecords(headerArray, exampleArray);
+        JSONObject mainjson = createJSONFromCSVRecords(headers, examples);
         hashMapCounters = new long[hashColumns.size()];
         for (int i = 0; i < hashColumns.size(); i++){
             HashMap<String, Long> toAdd = new HashMap<>();

@@ -17,21 +17,21 @@ public class CsvInputParser implements InputParser {
     CsvParser parser;
     String[] header;
 
-    public CsvInputParser(String[] excluded) {
+    public CsvInputParser() {
         CsvParserSettings settings = new CsvParserSettings();
         settings.getFormat().setLineSeparator("\n");
         settings.setMaxColumns(1000);
-        settings.excludeFields(excluded);
+        settings.setMaxCharsPerColumn(-1);
         parser = new CsvParser(settings);
     }
 
-    public CsvInputParser(String[] headers, String[] excluded){
+    public CsvInputParser(String[] headers){
         CsvParserSettings settings = new CsvParserSettings();
         settings.setFormat(new CsvFormat());
         settings.getFormat().setLineSeparator("\n");
         settings.setMaxColumns(1000);
+        settings.setMaxCharsPerColumn(-1);
         settings.setHeaders(headers);
-        settings.excludeFields(excluded);
         parser = new CsvParser(settings);
         header = headers;
     }
