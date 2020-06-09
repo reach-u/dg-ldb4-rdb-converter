@@ -1,5 +1,7 @@
 package com.demograft.ldb4rdbconverter;
 
+// Data class for holding information to be written with GUI.
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -8,9 +10,12 @@ import java.util.List;
 public class AppData {
     private static File inputFile = null;
     private static File configFile = null;
+    private static String configName = "";
     private static String longitude = "";
     private static String latitude = "";
     private static String time = "";
+    private static String timeExample = "";
+    private static List<String> removed = new ArrayList<>();
     private static List<ArrayList<String>> examples;
     private static HashMap<String, String> baseTypes = new HashMap<>();
     private static List<DataRow> GUIexamples;
@@ -20,6 +25,9 @@ public class AppData {
     private static List<Double> doubleNulls = new ArrayList<>();
     private static List<Long> longNulls = new ArrayList<>();
     private static List<Float> floatNulls = new ArrayList<>();
+    private static List<String> floatColumns = new ArrayList<>();
+    private static List<String> doubleColumns = new ArrayList<>();
+    private static List<String> stringColumns = new ArrayList<>();
     private static List<String> timeRows = new ArrayList<>();
     private static List<String> hashedRows = new ArrayList<>();
     private static int parquetSize = 0;
@@ -29,6 +37,13 @@ public class AppData {
         return parquetSize;
     }
 
+    public static String getConfigName() {
+        return configName;
+    }
+
+    public static void setConfigName(String configName) {
+        AppData.configName = configName;
+    }
     public static void setParquetSize(int parquetSize) {
         AppData.parquetSize = parquetSize;
     }
@@ -64,8 +79,6 @@ public class AppData {
     public static void setTimeExample(String timeExample) {
         AppData.timeExample = timeExample;
     }
-
-    private static String timeExample = "";
 
 
     public static List<String> getStringNulls() {
@@ -178,6 +191,51 @@ public class AppData {
 
     public static void setTypeMap(HashMap<String, String> typeMap) {
         AppData.typeMap = typeMap;
+    }
+
+    public static void addRemoved(String header){
+        removed.add(header);
+    }
+    public static void addFloatColumn(String header){
+        floatColumns.add(header);
+    }
+    public static void addDoubleColumn(String header){
+        doubleColumns.add(header);
+    }
+    public static void addStringColumn(String header){
+        stringColumns.add(header);
+    }
+
+    public static List<String> getFloatColumns() {
+        return floatColumns;
+    }
+
+    public static void setFloatColumns(List<String> floatColumns) {
+        AppData.floatColumns = floatColumns;
+    }
+
+    public static List<String> getDoubleColumns() {
+        return doubleColumns;
+    }
+
+    public static void setDoubleColumns(List<String> doubleColumns) {
+        AppData.doubleColumns = doubleColumns;
+    }
+
+    public static List<String> getStringColumns() {
+        return stringColumns;
+    }
+
+    public static void setStringColumns(List<String> stringColumns) {
+        AppData.stringColumns = stringColumns;
+    }
+
+    public static List<String> getRemoved() {
+        return removed;
+    }
+
+    public static void setRemoved(List<String> removed) {
+        AppData.removed = removed;
     }
 
     public static boolean mainSet(){

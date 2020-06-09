@@ -6,16 +6,18 @@ import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
-import javafx.scene.control.TableView;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.stage.Stage;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+
+import static com.demograft.ldb4rdbconverter.Helpers.copySelectionToClipboard;
 
 public class RowTypesController {
 
@@ -57,6 +59,17 @@ public class RowTypesController {
         for(ArrayList<String> innerList: AppData.getExamples()) {
             backupExamples.add(new ArrayList<>(innerList));
         }
+        mainTable.getSelectionModel().setCellSelectionEnabled(true);
+        mainTable.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+
+        // Implements ctrl + c copying from tableview. Allows selection of multiple rows.
+
+        final KeyCodeCombination keyCodeCopy = new KeyCodeCombination(KeyCode.C, KeyCombination.CONTROL_ANY);
+        mainTable.setOnKeyPressed(event -> {
+            if (keyCodeCopy.match(event)) {
+                copySelectionToClipboard(mainTable);
+            }
+        });
         updateTable();
     }
 
@@ -93,6 +106,7 @@ public class RowTypesController {
                 return;
             }
             else if(!row.equals("") && headers.contains(row)){
+                AppData.addFloatColumn(row);
                 types.put(row, "Float");
             }
         }
@@ -109,6 +123,7 @@ public class RowTypesController {
                 return;
             }
             else if(!row.equals("") && headers.contains(row)){
+                AppData.addDoubleColumn(row);
                 types.put(row, "Double");
             }
         }
@@ -125,6 +140,7 @@ public class RowTypesController {
                 return;
             }
             else if(!row.equals("") && headers.contains(row)){
+                AppData.addStringColumn(row);
                 types.put(row, "String");
             }
         }

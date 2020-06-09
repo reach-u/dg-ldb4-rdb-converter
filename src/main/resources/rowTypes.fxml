@@ -13,7 +13,7 @@
 >
     <SplitPane dividerPositions="0.25" orientation="VERTICAL" prefHeight="600" prefWidth="700" AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0">
         <AnchorPane prefHeight="150" prefWidth="700">
-            <Label text="Determine default null-values used for data types. Mark no null-string values with !" style="-fx-font: 16 times-new-roman;" AnchorPane.leftAnchor="20" AnchorPane.topAnchor="20" alignment="CENTER" textAlignment="CENTER">
+            <Label text="Redefine row types. Try to find a type for all undetermined rows." style="-fx-font: 16 times-new-roman;" AnchorPane.leftAnchor="20" AnchorPane.topAnchor="20" alignment="CENTER" textAlignment="CENTER">
             </Label>
             <HBox AnchorPane.topAnchor="60" AnchorPane.leftAnchor="50" spacing="23">
                 <VBox>

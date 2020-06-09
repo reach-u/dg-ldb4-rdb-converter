@@ -35,6 +35,9 @@
                     </TableColumn>
                 </columns>
             </TableView>
+            <Button text="Back" AnchorPane.bottomAnchor="50" AnchorPane.leftAnchor="50" fx:id="backButton" onAction="#backClicked">
+
+            </Button>
         </AnchorPane>
         <AnchorPane prefHeight="600" prefWidth="700">
             <VBox AnchorPane.topAnchor="20" AnchorPane.leftAnchor="20" spacing="5">
@@ -45,6 +48,9 @@
 
                 </Label>
             </VBox>
+            <Button text="Create configuration" fx:id="nextButton" onAction="#nextClicked" AnchorPane.bottomAnchor="50" AnchorPane.rightAnchor="50">
+
+            </Button>
         </AnchorPane>
     </SplitPane>
 </AnchorPane>

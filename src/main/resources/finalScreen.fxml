@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.demograft.ldb4rdbconverter.FinalScreenController"
+>
+    <Label alignment="CENTER" textAlignment="CENTER" wrapText="true" prefWidth="500" style="-fx-font: 20 times-new-roman;" fx:id="closingMessage" AnchorPane.topAnchor="200" AnchorPane.leftAnchor="100" >
+
+    </Label>
+    <Button fx:id="closingButton" onAction="#CloseProgram" AnchorPane.topAnchor="300" AnchorPane.leftAnchor="300" text="Close this screen">
+
+    </Button>
+</AnchorPane>

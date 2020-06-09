@@ -43,7 +43,9 @@ public class Ldb4RdbConverter {
 
     private int files = 0;
 
-    private List<String> columnsToRemove = new ArrayList<>();
+    private String[] columnsToRemove = new String[0];
+
+    private List<String> columnsToRemoveList = new ArrayList<>();
 
     private DateTimeFormatter timeFormatter;
 
@@ -52,7 +54,7 @@ public class Ldb4RdbConverter {
     private StringBuilder statistics = new StringBuilder();
 
     private final String[] propertyNames = new String[]{"input-file","output-file","stats-file","latitude","longitude","time","start-time","end-time","columns-to-map-long", "headers",
-    "long-null-values", "double-null-values", "float-null-values", "long-columns", "float-columns", "double-columns", "string-columns", "time-columns", "parquet-size","excluded","unique-strings","timezone"};
+    "long-null-values", "double-null-values", "float-null-values", "long-columns", "float-columns", "double-columns", "string-columns", "time-columns", "parquet-size","excluded","unique-strings","timezone","headers"};
 
     private final Set<String> propertySet = new HashSet<>(Arrays.asList(propertyNames));
 
@@ -177,7 +179,7 @@ public class Ldb4RdbConverter {
      *
      * @param time     input time string
      * @param timeZone timezone for case where input time doesn't have an timeZone given.
-     * @return DateTimeFormetter or null if the input time is an epoch.
+     * @return DateTimeFormatter or null if the input time is an epoch.
      */
     static DateTimeFormatter identifyTimeFormat(String time, String timeZone) {
         try {
@@ -409,7 +411,7 @@ public class Ldb4RdbConverter {
                 jo = determineType(headername, example);
             }
 
-            if (!columnsToRemove.contains(headername)) {  // If not manually excluded
+            if (!columnsToRemoveList.contains(headername)) {  // If not manually excluded
                     list.add(jo);
             }
         }
@@ -596,13 +598,13 @@ public class Ldb4RdbConverter {
         time = defaultProp.getProperty("time");
         if(defaultProp.containsKey("excluded")) {
             String propInfo = defaultProp.getProperty("excluded");
-            for (String column: propInfo.split(",")) {
-                columnsToRemove.add(column.trim());
-            }
+            columnsToRemove = propInfo.split(",");
+            columnsToRemoveList = new ArrayList<>(Arrays.asList(columnsToRemove));
         }
         if(defaultProp.containsKey("parquet-size")){
             parquet_size = Integer.parseInt(defaultProp.getProperty("parquet-size"));
         }
+
         if(defaultProp.containsKey("columns-to-map-long")) {
             String propInfo = defaultProp.getProperty("columns-to-map-long");
             for (String column: propInfo.split(",")) {
@@ -672,7 +674,6 @@ public class Ldb4RdbConverter {
             predefinedHeaders = true;
             String[] headerArray = headerInfo.split(",");
             this.headerArray = headerArray;
-            this.headers = new ArrayList<>(Arrays.asList(headerArray));
         }
 
         if(defaultProp.containsKey("stats-file")) {
@@ -1192,7 +1193,12 @@ public class Ldb4RdbConverter {
         File exampleFile;
         List<File> inputFiles;
         if (csvFiles.size() > 0) {
-            parser = new CsvInputParser();
+            if(predefinedHeaders){
+                parser = new CsvInputParser(headerArray, this.columnsToRemove);
+            }
+            else{
+                parser = new CsvInputParser(this.columnsToRemove);
+            }
             exampleFile = csvFiles.get(0);
             inputFiles = csvFiles;
         } else if (parquetFiles.size() > 0) {
@@ -1204,14 +1210,10 @@ public class Ldb4RdbConverter {
         }
         parser.beginParsing(exampleFile);
 
-        if(headers.size()==0){
-            this.headerArray = parser.getHeader();
-            this.headers = Arrays.asList(headerArray);
-        }
         InputRecord exampleRow = parser.parseNextRecord();
         String[] exampleArray = exampleRow.getValues();
         parser.stopParsing();
-        checkValidity(this.headers);
+        checkValidity(Arrays.asList(parser.getHeader()));
         String timeString = exampleRow.getString(time);
         timeFormatter = identifyTimeFormat(timeString, timeZone);
         if (timeFormatter == null && timeString.length() > 10) {

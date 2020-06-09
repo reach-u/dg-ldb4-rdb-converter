@@ -39,6 +39,14 @@
 
                         </Label>
                     </HBox>
+                    <HBox spacing="20">
+                        <Label text="Name of the configuration:" prefWidth="120" alignment="BASELINE_RIGHT">
+
+                        </Label>
+                        <TextField fx:id="confName">
+
+                        </TextField>
+                    </HBox>
                 </VBox>
                 <Button fx:id="updateRows" onAction="#update" text="Update">
 
