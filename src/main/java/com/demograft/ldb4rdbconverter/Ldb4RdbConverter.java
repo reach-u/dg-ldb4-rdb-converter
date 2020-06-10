@@ -154,7 +154,7 @@ public class Ldb4RdbConverter {
     private static String timeZone = "Z";
 
     private String formatName(String name){
-        name = name.replaceAll("_", " ");
+        name = name.replace("_", " ");
         StringBuilder newName = new StringBuilder();
         for (int i = 0; i < name.length() - 2; i++) {
             if (Character.isLowerCase(name.charAt(i)) && Character.isUpperCase(name.charAt(i + 1)) && Character.isLowerCase(name.charAt(i + 2))) {
@@ -179,36 +179,6 @@ public class Ldb4RdbConverter {
             System.exit(1);
         }
         converter.run();
-    }
-
-    // Takes the CSV file/folder given by the command line and parses all of the records in it.
-    private List<Record> parseCSV() {
-        CsvParserSettings settings = new CsvParserSettings();
-        settings.getFormat().setLineSeparator("\n");
-        CsvParser parser = new CsvParser(settings);
-        List<Record> parsedRecords = new ArrayList<>();
-        if (inputFile.getName().endsWith(".csv")) {
-            parsedRecords = parser.parseAllRecords(inputFile);
-        } else if (inputFile.isDirectory()) {
-            File[] listOfFiles = inputFile.listFiles();
-            for (File file : listOfFiles) {
-                try {
-                    if (file.getName().endsWith(".csv")) {
-                        files += 1;
-                        List<Record> newRecords = parser.parseAllRecords(file);
-                        if (files > 1) {
-                            newRecords.remove(0);
-                        }
-                        parsedRecords.addAll(newRecords);
-                    }
-                } catch (NullPointerException e) {
-                    throw new RuntimeException("Specified directory doesn't exist");
-                }
-            }
-        } else {
-            throw new RuntimeException("Error finding the file. Make sure the file name or directory name is correct and that all the files are .csv files.");
-        }
-        return parsedRecords;
     }
 
     private Schema.Type getSchemaType(Schema subschema, String field) {
