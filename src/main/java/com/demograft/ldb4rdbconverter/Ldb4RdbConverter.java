@@ -619,6 +619,7 @@ public class Ldb4RdbConverter {
                     break;
             }
         }
+        
         if (!fieldConversionResult.isFaulty()) {
             totalRecords += 1;
             writtenRecords += 1;
