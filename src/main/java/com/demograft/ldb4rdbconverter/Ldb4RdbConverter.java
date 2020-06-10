@@ -31,7 +31,7 @@ import java.util.*;
 
 @Slf4j
 public class Ldb4RdbConverter {
-    
+
     private File inputFile;
     private String outputFile;
 
@@ -179,89 +179,6 @@ public class Ldb4RdbConverter {
             System.exit(1);
         }
         converter.run();
-    }
-
-    /**
-     * method tries to guess input date formatter.
-     *
-     * @param time     input time string
-     * @param timeZone timezone for case where input time doesn't have an timeZone given.
-     * @return DateTimeFormatter or null if the input time is an epoch.
-     */
-    static DateTimeFormatter identifyTimeFormat(String time, String timeZone) {
-        try {
-           DateTimeFormatter formatter
-                    = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS xx");
-            ZonedDateTime date = ZonedDateTime.parse(time, formatter);
-            return formatter;
-        }
-        catch(DateTimeParseException e) {
-        }
-        try {
-            DateTimeFormatter formatter
-                    = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-
-            ZonedDateTime date = ZonedDateTime.parse(time, formatter);
-            return formatter;
-        }
-        catch(DateTimeParseException e2) {
-        }
-        try{
-            DateTimeFormatter formatter
-                    = DateTimeFormatter.ISO_ZONED_DATE_TIME;
-
-            ZonedDateTime date = ZonedDateTime.parse(time, formatter);
-            return formatter;
-        } catch (DateTimeParseException e1) {
-
-        }
-        try {
-            Long epoch = Long.parseLong(time);
-            return null;
-        } catch (NumberFormatException e1) {
-
-        }
-        try {
-            DateTimeFormatter formatter
-                    = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-
-
-            LocalDateTime localdate = LocalDateTime.parse(time, formatter);
-            ZonedDateTime date = ZonedDateTime.of(localdate, ZoneId.of(timeZone));
-            return formatter;
-        }
-        catch(DateTimeParseException e3) {
-            throw new RuntimeException("Error. Couldn't get DateTime parser from first example row. Does not match any common date time formats.");
-        }
-    }
-
-    static long timeToMillisecondsConverter(String time, DateTimeFormatter format, boolean inputEpochInMilliseconds) throws DateTimeParseException {
-        if (format != null) {
-            try {
-                ZonedDateTime date = ZonedDateTime.parse(time, format);
-                return date.toInstant().toEpochMilli();
-            } catch (DateTimeParseException e) {
-                LocalDateTime localdate = LocalDateTime.parse(time, format);
-                ZonedDateTime date = ZonedDateTime.of(localdate, ZoneId.of(timeZone));
-                return date.toInstant().toEpochMilli();
-            }
-        } else {
-            try {
-                if (time.length() < 10) {
-                    throw new DateTimeParseException("Couldn't parse input time to long", time, 0);
-                }
-
-                Long epoch = Long.parseLong(time);
-                if (inputEpochInMilliseconds) {
-                    return epoch;
-                } else {
-                    return epoch * 1000;
-                }
-
-            } catch (NumberFormatException e) {
-                throw new DateTimeParseException("Couldn't parse input time to long", time, 0, e);
-            }
-        }
     }
 
     // Takes the CSV file/folder given by the command line and parses all of the records in it.
