@@ -31,7 +31,7 @@ import java.util.*;
 
 @Slf4j
 public class Ldb4RdbConverter {
-
+    
     private File inputFile;
     private String outputFile;
 
