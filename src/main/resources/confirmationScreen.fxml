@@ -7,6 +7,7 @@
 <AnchorPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
             fx:controller="com.demograft.ldb4rdbconverter.ConfirmationScreenController"
+            maxHeight="600" maxWidth="700"
 >
     <SplitPane dividerPositions="0.583" prefHeight="600" prefWidth="1200" AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0">
         <AnchorPane prefHeight="600" prefWidth="700">
@@ -41,12 +42,118 @@
         </AnchorPane>
         <AnchorPane prefHeight="600" prefWidth="700">
             <VBox AnchorPane.topAnchor="20" AnchorPane.leftAnchor="20" spacing="5">
-                <Label text="First config">
+                <HBox>
+                    <Label prefWidth="70" text="Latitude:">
 
-                </Label>
-                <Label text="Second config">
+                    </Label>
+                    <Label fx:id="latitudeLabel" wrapText="true" maxWidth="400">
 
-                </Label>
+                    </Label>
+                </HBox>
+                <HBox>
+                    <Label prefWidth="70" text="Longitude:">
+
+                    </Label>
+                    <Label fx:id="longitudeLabel" wrapText="true" maxWidth="400">
+
+                    </Label>
+                </HBox>
+                <HBox>
+                    <Label prefWidth="70" text="Time:">
+
+                    </Label>
+                    <Label fx:id="timeLabel" wrapText="true" maxWidth="400">
+
+                    </Label>
+                </HBox>
+                <HBox>
+                    <Label prefWidth="70" text="Timezone:">
+
+                    </Label>
+                    <Label fx:id="timezoneLabel" wrapText="true" maxWidth="400">
+
+                    </Label>
+                </HBox>
+                <HBox>
+                    <Label prefWidth="70" text="Removed:">
+
+                    </Label>
+                    <Label fx:id="excludedLabel" wrapText="true" maxWidth="400">
+
+                    </Label>
+                </HBox>
+                <HBox>
+                    <Label prefWidth="70" text="Uniques:">
+
+                    </Label>
+                    <Label fx:id="uniquesLabel" wrapText="true" maxWidth="400">
+
+                    </Label>
+                </HBox>
+                <HBox>
+                    <Label prefWidth="70" text="Hashed:">
+
+                    </Label>
+                    <Label fx:id="hashedLabel" wrapText="true" maxWidth="400">
+
+                    </Label>
+                </HBox>
+                <HBox>
+                    <Label prefWidth="70" text="String cols:">
+
+                    </Label>
+                    <Label fx:id="stringColumnsLabel" wrapText="true" maxWidth="400">
+
+                    </Label>
+                </HBox>
+                <HBox>
+                    <Label prefWidth="70" text="String nulls:">
+
+                    </Label>
+                    <Label fx:id="stringNullsLabel" wrapText="true" maxWidth="400">
+
+                    </Label>
+                </HBox>
+                <HBox>
+                    <Label prefWidth="70" text="Float cols:">
+
+                    </Label>
+                    <Label fx:id="floatColumnsLabel" wrapText="true" maxWidth="400">
+
+                    </Label>
+                </HBox>
+                <HBox>
+                    <Label prefWidth="70" text="Float nulls:">
+
+                    </Label>
+                    <Label fx:id="floatNullsLabel" wrapText="true" maxWidth="400">
+
+                    </Label>
+                </HBox>
+                <HBox>
+                    <Label prefWidth="70" text="Double cols:">
+
+                    </Label>
+                    <Label fx:id="doubleColumnsLabel" wrapText="true" maxWidth="400">
+
+                    </Label>
+                </HBox>
+                <HBox>
+                    <Label prefWidth="70" text="Double nulls:">
+
+                    </Label>
+                    <Label fx:id="doubleNullsLabel" wrapText="true" maxWidth="400">
+
+                    </Label>
+                </HBox>
+                <HBox>
+                    <Label prefWidth="70" text="Time cols:">
+
+                    </Label>
+                    <Label fx:id="timeColumnsLabel" wrapText="true" maxWidth="400">
+
+                    </Label>
+                </HBox>
             </VBox>
             <Button text="Create configuration" fx:id="nextButton" onAction="#nextClicked" AnchorPane.bottomAnchor="50" AnchorPane.rightAnchor="50">
 

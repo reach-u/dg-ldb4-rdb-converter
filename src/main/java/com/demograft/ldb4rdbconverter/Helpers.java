@@ -9,6 +9,8 @@ import javafx.scene.control.TableView;
 import javafx.scene.input.Clipboard;
 import javafx.scene.input.ClipboardContent;
 
+import java.util.List;
+
 public class Helpers {
 
     public static void copySelectionToClipboard(final TableView<?> table) {
@@ -21,6 +23,7 @@ public class Helpers {
             if (cell == null)
                 cell = "";
             strb.append(cell);
+            if(posList.indexOf(p) != posList.size()-1)
             strb.append(",");
         }
         final ClipboardContent clipboardContent = new ClipboardContent();
@@ -28,6 +31,16 @@ public class Helpers {
         Clipboard.getSystemClipboard().setContent(clipboardContent);
     }
 
-
-
+    public static String listToString(List<?> list){
+        StringBuilder sb = new StringBuilder();
+        for(Object object: list){
+            if(list.indexOf(object) == list.size() - 1){
+                sb.append(object.toString());
+            }
+            else{
+                sb.append(object.toString() + ",");
+            }
+        }
+        return sb.toString();
+    }
 }

@@ -7,6 +7,7 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.Label;
 import javafx.scene.control.TableView;
 import javafx.stage.Stage;
 
@@ -26,9 +27,52 @@ public class ConfirmationScreenController {
     Button backButton;
     @FXML
     Button nextButton;
+    @FXML
+    Label latitudeLabel;
+    @FXML
+    Label longitudeLabel;
+    @FXML
+    Label timeLabel;
+    @FXML
+    Label timezoneLabel;
+    @FXML
+    Label excludedLabel;
+    @FXML
+    Label uniquesLabel;
+    @FXML
+    Label hashedLabel;
+    @FXML
+    Label doubleNullsLabel;
+    @FXML
+    Label floatNullsLabel;
+    @FXML
+    Label stringNullsLabel;
+    @FXML
+    Label stringColumnsLabel;
+    @FXML
+    Label floatColumnsLabel;
+    @FXML
+    Label doubleColumnsLabel;
+    @FXML
+    Label timeColumnsLabel;
+
 
 
     public void initialize(){
+        latitudeLabel.setText(AppData.getLatitude());
+        longitudeLabel.setText(AppData.getLongitude());
+        timeLabel.setText(AppData.getTime());
+        timezoneLabel.setText(AppData.getTimeExample());
+        excludedLabel.setText(Helpers.listToString(AppData.getRemoved()));
+        uniquesLabel.setText(String.valueOf(AppData.getStringLimit()));
+        hashedLabel.setText(Helpers.listToString(AppData.getHashedRows()));
+        doubleNullsLabel.setText(Helpers.listToString(AppData.getDoubleNulls()));
+        floatNullsLabel.setText(Helpers.listToString(AppData.getFloatNulls()));
+        stringNullsLabel.setText(Helpers.listToString(AppData.getStringNulls()));
+        stringColumnsLabel.setText(Helpers.listToString(AppData.getStringColumns()));
+        floatColumnsLabel.setText(Helpers.listToString(AppData.getFloatColumns()));
+        doubleColumnsLabel.setText(Helpers.listToString(AppData.getDoubleColumns()));
+        timeColumnsLabel.setText(Helpers.listToString(AppData.getTimeRows()));
         updateTable();
     }
 
