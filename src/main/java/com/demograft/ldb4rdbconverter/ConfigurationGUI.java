@@ -10,8 +10,8 @@ import java.io.File;
 import java.sql.SQLOutput;
 import java.util.List;
 
-public class configurationGUI extends Application {
-    
+public class ConfigurationGUI extends Application {
+
     @Override
     public void start(Stage primaryStage) throws Exception{
         Parent root = FXMLLoader.load(getClass().getClassLoader().getResource("mainScreen.fxml"));
