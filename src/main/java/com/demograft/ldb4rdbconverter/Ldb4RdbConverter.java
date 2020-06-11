@@ -749,12 +749,20 @@ public class Ldb4RdbConverter {
                     throw new NullPointerException();
                 }
                 fieldConversionResult.updateGenericRecordBuilder("lon", number);
+                Float[] minmax = minMaxTable.get(field.name());
                 Integer[] stat2 = statsTable.get("lon");
                 stat2[COL_NON_NULL_VALUES] += 1;
                 if (number == 0.0D) {
                     stat2[COL_ZERO_VALUES] += 1;
                 }
                 statsTable.put("lon", stat2);
+                if (minmax[COL_MIN_VALUE] > number) {
+                    minmax[COL_MIN_VALUE] = number.floatValue();
+                }
+                if (minmax[COL_MAX_VALUE] < number) {
+                    minmax[COL_MAX_VALUE] = number.floatValue();
+                }
+                minMaxTable.put(field.name(), minmax);
             } catch (NumberFormatException e) {
                 Integer[] stat2 = statsTable.get("lon");
                 stat2[COL_NON_NULL_VALUES] += 1;
@@ -775,11 +783,19 @@ public class Ldb4RdbConverter {
                 }
                 fieldConversionResult.updateGenericRecordBuilder("lat", number);
                 Integer[] stat2 = statsTable.get("lat");
+                Float[] minmax = minMaxTable.get(field.name());
                 stat2[COL_NON_NULL_VALUES] += 1;
                 if (number == 0.000000D) {
                     stat2[COL_ZERO_VALUES] += 1;
                 }
                 statsTable.put("lat", stat2);
+                if (minmax[COL_MIN_VALUE] > number) {
+                    minmax[COL_MIN_VALUE] = number.floatValue();
+                }
+                if (minmax[COL_MAX_VALUE] < number) {
+                    minmax[COL_MAX_VALUE] = number.floatValue();
+                }
+                minMaxTable.put(field.name(), minmax);
             } catch (NumberFormatException e) {
                 Integer[] stat2 = statsTable.get("lat");
                 stat2[COL_NON_NULL_VALUES] += 1;
@@ -798,11 +814,18 @@ public class Ldb4RdbConverter {
                 checkFieldValidity(field, checkForNullDouble(number, field.name()) == null, doubleNullValues.contains(number));
                 fieldConversionResult.updateGenericRecordBuilder(field, number);
                 Integer[] stat = statsTable.get(field.name());
+                Float[] minmax = minMaxTable.get(field.name());
                 stat[COL_NON_NULL_VALUES] += 1;
                 if (number == 0.000000D) {
                     stat[COL_ZERO_VALUES] += 1;
                 }
                 statsTable.put(field.name(), stat);
+                if (minmax[COL_MIN_VALUE] > number) {
+                    minmax[COL_MIN_VALUE] = number.floatValue();
+                }
+                if (minmax[COL_MAX_VALUE] < number) {
+                    minmax[COL_MAX_VALUE] = number.floatValue();
+                }
             } catch (NumberFormatException e) {
                 handleNullOrEmpty(fieldConversionResult, field);
             } catch (NullPointerException e1) {
@@ -863,7 +886,7 @@ public class Ldb4RdbConverter {
         // check wether it is the newly generated field for retainHashes by checking it's final 4 symbols
         else if(field.name().substring(field.name().length() - 4).equals("_IDs")){
             String fieldName = field.name();
-            Integer index = hashColumns.size() + retainHashes.indexOf(fieldName);
+            Integer index = hashColumns.size() + retainHashes.indexOf(field.name().substring(0, field.name().length() - 4));
             try {
                 Long hashValue = generateNewHash(record.getString(fieldName.substring(0,fieldName.length() - 4)), index);
                 fieldConversionResult.updateGenericRecordBuilder(field, hashValue);
@@ -1093,7 +1116,7 @@ public class Ldb4RdbConverter {
         for (Schema.Field field : avroSchema.getFields()) {
             statsTable.put(field.name(), new Integer[]{0, 0, 0, 0});
             typeTable.put(field.name(), getSchemaType(field.schema()));
-            if (getSchemaType(field.schema()) == Schema.Type.FLOAT) {
+            if (getSchemaType(field.schema()) == Schema.Type.FLOAT || getSchemaType(field.schema()) == Schema.Type.DOUBLE) {
                 minMaxTable.put(field.name(), new Float[]{Float.MAX_VALUE, Float.MIN_VALUE});
             }
             if (getSchemaType(field.schema()) == Schema.Type.STRING) {
