@@ -90,6 +90,8 @@ public class Ldb4RdbConverter {
 
     private List<String> timeColumns = new ArrayList<>();
 
+    private List<String> retainHashes = new LinkedList<>();
+
     private List<HashMap<String, Long>> hashTables = new ArrayList<>();
 
     private HashMap<String, Integer[]> statsTable = new HashMap<>();
@@ -203,43 +205,58 @@ public class Ldb4RdbConverter {
 
     private JSONObject determineType(String headername, String example) {
         JSONObject jo = new JSONObject();
-        try {
-            TimeUtils.timeToMillisecondsConverter(example, timeFormatter, inputEpochInMilliseconds, timeZone);
+
+        //Make all rows that get created with retainHashes as longs.
+
+        if (headername.endsWith("_IDs")){
             jo.put("name", headername);
             JSONArray typelist = new JSONArray();
             typelist.add("null");
             typelist.add("long");
             jo.put("type", typelist);
-            timeColumns.add(headername);
-        } catch (DateTimeParseException e1) {
+        }
+        else {
+
+            // Try to determine type
+
             try {
-                Float.parseFloat(example);
+                TimeUtils.timeToMillisecondsConverter(example, timeFormatter, inputEpochInMilliseconds, timeZone);
                 jo.put("name", headername);
                 JSONArray typelist = new JSONArray();
                 typelist.add("null");
-                typelist.add("float");
+                typelist.add("long");
                 jo.put("type", typelist);
-            } catch (NumberFormatException e2) {
-                JSONArray typelist = new JSONArray();
-                jo.put("name", headername);
-                typelist.add("null");
-                if (hashColumns.contains(headername)) {
-                    typelist.add("long");
-                } else {
-                    typelist.add("string");
+                timeColumns.add(headername);
+            } catch (DateTimeParseException e1) {
+                try {
+                    Float.parseFloat(example);
+                    jo.put("name", headername);
+                    JSONArray typelist = new JSONArray();
+                    typelist.add("null");
+                    typelist.add("float");
+                    jo.put("type", typelist);
+                } catch (NumberFormatException e2) {
+                    JSONArray typelist = new JSONArray();
+                    jo.put("name", headername);
+                    typelist.add("null");
+                    if (hashColumns.contains(headername)) {
+                        typelist.add("long");
+                    } else {
+                        typelist.add("string");
+                    }
+                    jo.put("type", typelist);
                 }
+            }
+
+            // All undefinable data types are marked as strings.
+
+            catch (NullPointerException e1) {
+                jo.put("name", headername);
+                JSONArray typelist = new JSONArray();
+                typelist.add("null");
+                typelist.add("string");
                 jo.put("type", typelist);
             }
-        }
-
-        // All undefinable data types are marked as strings.
-
-        catch (NullPointerException e1) {
-            jo.put("name", headername);
-            JSONArray typelist = new JSONArray();
-            typelist.add("null");
-            typelist.add("string");
-            jo.put("type", typelist);
         }
         return jo;
     }
@@ -558,6 +575,12 @@ public class Ldb4RdbConverter {
             this.headerArray = headerArray;
         }
 
+        if (defaultProp.containsKey("retain-hashes")) {
+            String headerInfo = defaultProp.getProperty("retain-hashes").trim();
+            String[] retainHashesArray = headerInfo.split(",");
+            this.retainHashes = new LinkedList<>(Arrays.asList(retainHashesArray));
+        }
+
         if (defaultProp.containsKey("stats-file")) {
             statsFile = defaultProp.getProperty("stats-file");
         }
@@ -836,7 +859,24 @@ public class Ldb4RdbConverter {
                 stat[COL_NULL_VALUES] += 1;
                 statsTable.put(field.name(), stat);
             }
-        } else {
+        }
+        // check wether it is the newly generated field for retainHashes by checking it's final 4 symbols
+        else if(field.name().substring(field.name().length() - 4).equals("_IDs")){
+            String fieldName = field.name();
+            Integer index = hashColumns.size() + retainHashes.indexOf(fieldName);
+            try {
+                Long hashValue = generateNewHash(record.getString(fieldName.substring(0,fieldName.length() - 4)), index);
+                fieldConversionResult.updateGenericRecordBuilder(field, hashValue);
+                Integer[] stat = statsTable.get(fieldName);
+                stat[COL_NON_NULL_VALUES] += 1;
+                statsTable.put(field.name(), stat);
+            } catch (NullPointerException e) {
+                Integer[] stat = statsTable.get(field.name());
+                stat[COL_NULL_VALUES] += 1;
+                statsTable.put(field.name(), stat);
+            }
+        }
+        else {
             // Could be null or long
             try {
                 Long date = TimeUtils.timeToMillisecondsConverter(record.getString(field.name()), timeFormatter, inputEpochInMilliseconds, timeZone);
@@ -899,7 +939,10 @@ public class Ldb4RdbConverter {
             targetName = longitude;
         } else if (field.name().equals("time")) {
             targetName = time;
-        } else {
+        } else if (field.name().substring(field.name().length() - 4).equals("_IDs")){
+            return Schema.Type.LONG;
+        }
+        else {
             targetName = field.name();
         }
         return getSchemaType(subschema, record.getString(targetName));
@@ -1030,9 +1073,13 @@ public class Ldb4RdbConverter {
         if (timeFormatter == null && timeString.length() > 10) {
             inputEpochInMilliseconds = true;
         }
+        for(String row: retainHashes){
+            headers.add(row + "_IDs");
+            examples.add("0");
+        }
         JSONObject mainjson = createJSONFromCSVRecords(headers, examples);
-        hashMapCounters = new long[hashColumns.size()];
-        for (int i = 0; i < hashColumns.size(); i++) {
+        hashMapCounters = new long[hashColumns.size() + retainHashes.size()];
+        for (int i = 0; i < (hashColumns.size() + retainHashes.size()); i++) {
             HashMap<String, Long> toAdd = new HashMap<>();
             hashTables.add(toAdd);
         }
