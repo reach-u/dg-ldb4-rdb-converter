@@ -58,15 +58,15 @@ public class Ldb4RdbConverter {
     private final String[] propertyNames = new String[]{"input-file", "output-file", "stats-file", "latitude", "longitude",
             "time", "start-time", "end-time", "columns-to-map-long", "headers", "long-null-values", "double-null-values",
             "float-null-values", "long-columns", "float-columns", "double-columns", "string-columns", "time-columns",
-            "parquet-size", "excluded", "unique-strings", "timezone"};
+            "parquet-size", "excluded", "unique-strings", "timezone","headers","retain-hashes"};
 
     private final Set<String> propertySet = new HashSet<>(Arrays.asList(propertyNames));
 
     private String[] headerArray;
 
-    private List<String> examples;
+    private List<String> examples = new LinkedList<>();
 
-    private List<String> headers = new ArrayList<>();
+    private List<String> headers = new LinkedList<>();
 
     private List<String> hashColumns = new ArrayList<>();
 
@@ -619,7 +619,7 @@ public class Ldb4RdbConverter {
                     break;
             }
         }
-        
+
         if (!fieldConversionResult.isFaulty()) {
             totalRecords += 1;
             writtenRecords += 1;
@@ -987,7 +987,7 @@ public class Ldb4RdbConverter {
         if (csvFiles.size() > 0) {
             if(predefinedHeaders){
                 parser = new CsvInputParser(headerArray);
-                headers = Arrays.asList(headerArray);
+                headers = new LinkedList<>(Arrays.asList(headerArray));
             }
             else{
                 parser = new CsvInputParser();
@@ -1005,19 +1005,23 @@ public class Ldb4RdbConverter {
         if(!predefinedHeaders){
             InputRecord headerrow = parser.parseNextRecord();
             headerArray = headerrow.getValues();
-            headers = Arrays.asList(headerArray);
+            headers = new LinkedList<>(Arrays.asList(headerArray));
         }
         InputRecord exampleRow = parser.parseNextRecord();
         String[] exampleArray = exampleRow.getValues();
-        examples = Arrays.asList(exampleArray);
+        examples = new LinkedList<>(Arrays.asList(exampleArray));
 
         parser.stopParsing();
 
+
+        // Otherwise throws concurrentmodificationexception
+        List<String> iterHeaders = new LinkedList<>(headers);
+
         //Remove excluded rows and their examples
-        for(String row: headers){
+        for(String row: iterHeaders){
             if (columnsToRemoveList.contains(row)){
-                headers.remove(row);
                 examples.remove(headers.indexOf(row));
+                headers.remove(row);
             }
         }
 
