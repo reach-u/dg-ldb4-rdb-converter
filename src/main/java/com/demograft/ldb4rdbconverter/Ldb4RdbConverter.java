@@ -1029,7 +1029,7 @@ public class Ldb4RdbConverter {
 
         if (!inputFile.isDirectory()) {
             String fileName = inputFile.getName();
-            if (fileName.endsWith(".csv")) {
+            if (fileName.endsWith(".csv") || fileName.endsWith(".gz") || fileName.endsWith(".zip")) {
                 csvFiles.add(inputFile);
             } else if (fileName.endsWith(PARQUET_FILE_EXTENSION)) {
                 parquetFiles.add(inputFile);

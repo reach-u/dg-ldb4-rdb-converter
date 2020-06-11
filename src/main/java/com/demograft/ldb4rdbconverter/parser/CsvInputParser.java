@@ -7,9 +7,11 @@ import com.univocity.parsers.csv.CsvParser;
 import com.univocity.parsers.csv.CsvParserSettings;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.File;
+import java.io.*;
 import java.lang.reflect.Field;
 import java.util.List;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.ZipInputStream;
 
 @Slf4j
 public class CsvInputParser implements InputParser {
@@ -38,8 +40,26 @@ public class CsvInputParser implements InputParser {
 
     @Override
     public void beginParsing(File file) {
-        log.info("Using csv reader for {}", file);
-        parser.beginParsing(file);
+        try {
+            if (file.getName().endsWith(".zip")) {
+                parser.beginParsing(new ZipInputStream(new FileInputStream(file)));
+                log.info("Using zip reader for {}", file);
+            }
+            else if(file.getName().endsWith(".gz")){
+                parser.beginParsing(new GZIPInputStream(new FileInputStream(file)));
+                log.info("Using gzip reader for {}", file);
+            }
+            else {
+                log.info("Using csv reader for {}", file);
+                parser.beginParsing(file);
+            }
+        }
+        catch(FileNotFoundException e){
+            log.info("Error finding the data file: " + file.getName());
+        }
+        catch(IOException e){
+            log.info("Unknown error when parsing data file: " + file.getName());
+        }
         if(header == null) {
             header = parser.parseNextRecord().getValues();
         }
