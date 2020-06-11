@@ -24,6 +24,7 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.text.DecimalFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -984,9 +985,14 @@ public class Ldb4RdbConverter {
         for (Map.Entry<String,Integer[]> entry  : statsTable.entrySet()) {
             String key = entry.getKey();
             Integer[] value = entry.getValue();
+            DecimalFormat df = new DecimalFormat();
+
+            // Statistics are shown in a comfortable format.
+
+            df.applyPattern("###.###");
             statistics.append(key + " , non-null: " + value[0] + " , invalid: " + value[1] + " , null: " + value[2] + " , zero-values: " + value[3] + " , type: " + typeToString(typeTable.get(key)) + "\n");
             if (minMaxTable.containsKey(key)) {
-                statistics.append("     Min: " + minMaxTable.get(key)[0] + "       Max: " + minMaxTable.get(key)[1] + "\n\n");
+                statistics.append("     Min: " + df.format(minMaxTable.get(key)[0]) + "       Max: " + df.format(minMaxTable.get(key)[1]) + "\n\n");
             }
             if (uniqueStrings.containsKey(key)) {
                 statistics.append("     Unique string count: " + uniqueStrings.get(key).size() + "\n\n");
