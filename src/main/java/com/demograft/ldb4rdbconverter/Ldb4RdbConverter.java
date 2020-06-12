@@ -8,6 +8,7 @@ import com.univocity.parsers.common.record.Record;
 import com.univocity.parsers.csv.CsvParser;
 import com.univocity.parsers.csv.CsvParserSettings;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.JsonProperties;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.hadoop.fs.Path;
@@ -20,10 +21,7 @@ import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
+import java.io.*;
 import java.text.DecimalFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
@@ -59,13 +57,14 @@ public class Ldb4RdbConverter {
     private final String[] propertyNames = new String[]{"input-file", "output-file", "stats-file", "latitude", "longitude",
             "time", "start-time", "end-time", "columns-to-map-long", "headers", "long-null-values", "double-null-values",
             "float-null-values", "long-columns", "float-columns", "double-columns", "string-columns", "time-columns",
-            "parquet-size", "excluded", "unique-strings", "timezone","headers","retain-hashes","trajectoryID"};
+            "parquet-size", "excluded", "unique-strings", "timezone","headers","retain-hashes","trajectoryID","tokenFiles"};
 
     private final Set<String> propertySet = new HashSet<>(Arrays.asList(propertyNames));
 
     private String[] headerArray;
 
     private String trajectory = "";
+
 
     private List<String> examples = new LinkedList<>();
 
@@ -90,6 +89,14 @@ public class Ldb4RdbConverter {
     private List<String> doubleColumns = new ArrayList<>();
 
     private List<String> stringColumns = new ArrayList<>();
+
+    private List<String> tokenFiles = new LinkedList<>();
+
+    private Map<String, String> tokenHeaders = new HashMap<>();           //    They are formed as follows:   tokenHeader -> originalHeader
+
+    private Map<String, Map<String,String>> tokenMaps = new HashMap<>();   //    They are formed as follows:  tokenHeader -> {originalRow -> tokenRow}
+
+    private Map<String, String> tokenTypes = new HashMap<>();
 
     private List<String> timeColumns = new ArrayList<>();
 
@@ -296,23 +303,33 @@ public class Ldb4RdbConverter {
                 typelist.add("null");
                 typelist.add("long");
                 jo.put("type", typelist);
+
             } else if (floatColumns.contains(headername)) {
                 jo.put("name", headername);
                 JSONArray typelist = new JSONArray();
                 typelist.add("null");
                 typelist.add("float");
                 jo.put("type", typelist);
+
             } else if (doubleColumns.contains(headername)) {
                 jo.put("name", headername);
                 JSONArray typelist = new JSONArray();
                 typelist.add("null");
                 typelist.add("double");
                 jo.put("type", typelist);
+
             } else if (stringColumns.contains(headername)) {
                 jo.put("name", headername);
                 JSONArray typelist = new JSONArray();
                 typelist.add("null");
                 typelist.add("string");
+                jo.put("type", typelist);
+
+            } else if (tokenTypes.keySet().contains(headername)){
+                jo.put("name", headername);
+                JSONArray typelist = new JSONArray();
+                typelist.add("null");
+                typelist.add(tokenTypes.get(headername));
                 jo.put("type", typelist);
             }
 
@@ -476,6 +493,30 @@ public class Ldb4RdbConverter {
         return value;
     }
 
+    private void createTokenMaps(List<String> tokenFiles){
+        for(String file: tokenFiles){
+            File tokenFile = new File(file);
+            CsvParserSettings settings = new CsvParserSettings();
+            settings.detectFormatAutomatically();
+            CsvParser parser = new CsvParser(settings);
+
+            parser.beginParsing(tokenFile);
+            String[] headers = parser.parseNext();
+            tokenHeaders.put(headers[1], headers[0]);
+            tokenTypes.put(headers[1], headers[2]);
+            Map<String, String> tokenMap = new HashMap<>();
+            String[] record;
+            int i = 0;
+            while ((record = parser.parseNext()) != null) {
+                tokenMap.put(record[0].toLowerCase(), record[1]);
+                i++;
+            }
+            tokenMaps.put(headers[1], tokenMap);
+            parser.stopParsing();
+        }
+    }
+
+
     private void checkValidity(List<String> headers) {
         for (String configValue : rowNulls.keySet()) {
             if (!headers.contains(configValue)) {
@@ -580,6 +621,12 @@ public class Ldb4RdbConverter {
                 doubleColumns.add(column.trim());
             }
         }
+        if (defaultProp.containsKey("tokenFiles")) {
+            String propInfo = defaultProp.getProperty("tokenFiles");
+            for (String column : propInfo.split(",")){
+                tokenFiles.add(column.trim());
+            }
+        }
         if (defaultProp.containsKey("string-columns")) {
             String propInfo = defaultProp.getProperty("string-columns");
             for (String column : propInfo.split(",")) {
@@ -639,6 +686,8 @@ public class Ldb4RdbConverter {
         FieldConversionResult fieldConversionResult = new FieldConversionResult(schema);
         for (Schema.Field field : schema.getFields()) {
             Schema subschema = field.schema();
+
+
             Schema.Type subSchemaType = getSchemaType(record, field, subschema);
 
             switch (subSchemaType) {
@@ -716,15 +765,28 @@ public class Ldb4RdbConverter {
             handleNullOrEmpty(fieldConversionResult, field);
         } else {
             try {
-                String answer = record.getString(field.name());
-                checkFieldValidity(field, checkForNullString(answer, field.name()) == null, stringNullValues.contains(answer));
-                Set<String> set = uniqueStrings.get(field.name());
+                String answer;
+                String fieldName = field.name();
+                if(tokenHeaders.keySet().contains(fieldName)){
+                    String preToken = record.getString(tokenHeaders.get(fieldName));
+                    String nr = tokenMaps.get(fieldName).get(preToken.toLowerCase());
+                    if (nr == null){
+                        fieldConversionResult.updateGenericRecordBuilder(field, null);
+                        throw new NullPointerException();
+                    }
+                    answer = nr;
+                }
+                else{
+                    answer = record.getString(field.name());
+                }
+                checkFieldValidity(field, checkForNullString(answer, fieldName) == null, stringNullValues.contains(answer));
+                Set<String> set = uniqueStrings.get(fieldName);
                 set.add(answer);
-                uniqueStrings.put(field.name(), set);
+                uniqueStrings.put(fieldName, set);
                 fieldConversionResult.updateGenericRecordBuilder(field, answer);
-                Integer[] stat = statsTable.get(field.name());
+                Integer[] stat = statsTable.get(fieldName);
                 stat[COL_NON_NULL_VALUES] += 1;
-                statsTable.put(field.name(), stat);
+                statsTable.put(fieldName, stat);
 
             } catch (NullPointerException e1) {
                 handleNullOrEmpty(fieldConversionResult, field);
@@ -734,12 +796,24 @@ public class Ldb4RdbConverter {
 
     private void convertFloat(InputRecord record, FieldConversionResult fieldConversionResult, Schema.Field field) {
         try {
-            Float foundValue = record.getFloat(field.name());
+            Float foundValue;
+            String fieldName = field.name();
+            if(tokenHeaders.keySet().contains(field.name())){
+                String preToken = record.getString(tokenHeaders.get(fieldName));
+                String nr = tokenMaps.get(fieldName).get(preToken.toLowerCase());
+                if (nr == null){
+                    fieldConversionResult.updateGenericRecordBuilder(field, null);
+                    throw new NullPointerException();
+                }
+                foundValue = Float.parseFloat(nr);
+            } else {
+                foundValue = record.getFloat(fieldName);
+            }
             // Max values are sometimes used to indicate missing data.
-            checkFieldValidity(field, checkForNullFloat(foundValue, field.name()) == null, floatNullValues.contains(foundValue));
+            checkFieldValidity(field, checkForNullFloat(foundValue, fieldName) == null, floatNullValues.contains(foundValue));
             fieldConversionResult.updateGenericRecordBuilder(field, foundValue);
-            Integer[] stat = statsTable.get(field.name());
-            Float[] minmax = minMaxTable.get(field.name());
+            Integer[] stat = statsTable.get(fieldName);
+            Float[] minmax = minMaxTable.get(fieldName);
             stat[COL_NON_NULL_VALUES] += 1;
             if (foundValue == 0.0F) {
                 stat[COL_ZERO_VALUES] += 1;
@@ -829,6 +903,32 @@ public class Ldb4RdbConverter {
                 stat[COL_NULL_VALUES] += 1;
                 statsTable.put("lat", stat);
                 fieldConversionResult.setFaulty(true);
+            }
+        } else if (tokenHeaders.keySet().contains(field.name())){
+            try {
+                String fieldName = field.name();
+                String preToken = record.getString(tokenHeaders.get(fieldName));
+                String nr = tokenMaps.get(fieldName).get(preToken.toLowerCase());
+                if (nr == null){
+                    fieldConversionResult.updateGenericRecordBuilder(field, nr);
+                    throw new NullPointerException();
+                }
+                Double number = Double.parseDouble(nr);
+                fieldConversionResult.updateGenericRecordBuilder(field, number);
+                Integer[] stat = statsTable.get(fieldName);
+                stat[COL_NON_NULL_VALUES] += 1;
+                statsTable.put(field.name(), stat);
+                Float[] minmax = minMaxTable.get(field.name());
+                if (minmax[COL_MIN_VALUE] > number) {
+                    minmax[COL_MIN_VALUE] = number.floatValue();
+                }
+                if (minmax[COL_MAX_VALUE] < number) {
+                    minmax[COL_MAX_VALUE] = number.floatValue();
+                }
+            } catch (NullPointerException e) {
+                Integer[] stat = statsTable.get(field.name());
+                stat[COL_NULL_VALUES] += 1;
+                statsTable.put(field.name(), stat);
             }
         } else {
             try {
@@ -921,6 +1021,27 @@ public class Ldb4RdbConverter {
                 statsTable.put(field.name(), stat);
             }
         }
+        // Check wether it a generated row by one of the token Files.
+        else if (tokenHeaders.keySet().contains(field.name())){
+            try{
+                String fieldName = field.name();
+                String preToken = record.getString(tokenHeaders.get(fieldName));
+                String nr = tokenMaps.get(fieldName).get(preToken.toLowerCase());
+                if (nr == null){
+                    fieldConversionResult.updateGenericRecordBuilder(field, null);
+                    throw new NullPointerException();
+                }
+                Long number = Long.parseLong(nr);
+                fieldConversionResult.updateGenericRecordBuilder(field, number);
+                Integer[] stat = statsTable.get(fieldName);
+                stat[COL_NON_NULL_VALUES] += 1;
+                statsTable.put(field.name(), stat);
+            } catch (NullPointerException e) {
+                Integer[] stat = statsTable.get(field.name());
+                stat[COL_NULL_VALUES] += 1;
+                statsTable.put(field.name(), stat);
+            }
+        }
         else {
             // Could be null or long
             try {
@@ -984,8 +1105,27 @@ public class Ldb4RdbConverter {
             targetName = longitude;
         } else if (field.name().equals("time")) {
             targetName = time;
-        } else if (field.name().substring(field.name().length() - 4).equals("_IDs")){
+        } else if (field.name().substring(field.name().length() - 4).equals("_IDs")){   // Deal with created hash rows
             return Schema.Type.LONG;
+        } else if (tokenHeaders.keySet().contains(field.name())){
+            switch(tokenTypes.get(field.name())){
+                case "long": {
+                    return Schema.Type.LONG;
+                }
+                case "double": {
+                    return Schema.Type.DOUBLE;
+                }
+                case "string": {
+                    return Schema.Type.STRING;
+                }
+                case "float": {
+                    return Schema.Type.FLOAT;
+                }
+                default:{
+                    log.info("This should not be possible");
+                    return null;
+                }
+            }
         }
         else {
             targetName = field.name();
@@ -1096,8 +1236,7 @@ public class Ldb4RdbConverter {
         }
         parser.beginParsing(exampleFile);
         if(!predefinedHeaders){
-            InputRecord headerrow = parser.parseNextRecord();
-            headerArray = headerrow.getValues();
+            headerArray = parser.getHeader();
             headers = new LinkedList<>(Arrays.asList(headerArray));
         }
         InputRecord exampleRow = parser.parseNextRecord();
@@ -1126,6 +1265,11 @@ public class Ldb4RdbConverter {
         for(String row: retainHashes){
             headers.add(row + "_IDs");
             examples.add("0");
+        }
+        createTokenMaps(tokenFiles);
+        for(String row: tokenMaps.keySet()){
+            headers.add(row);
+            examples.add("0");   // This does not count as token rows are given types based on the entries in tokenTypes
         }
         JSONObject mainjson = createJSONFromCSVRecords(headers, examples);
         hashMapCounters = new long[hashColumns.size() + retainHashes.size()];
