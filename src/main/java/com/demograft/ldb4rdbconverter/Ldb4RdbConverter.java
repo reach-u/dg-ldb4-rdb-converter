@@ -59,11 +59,13 @@ public class Ldb4RdbConverter {
     private final String[] propertyNames = new String[]{"input-file", "output-file", "stats-file", "latitude", "longitude",
             "time", "start-time", "end-time", "columns-to-map-long", "headers", "long-null-values", "double-null-values",
             "float-null-values", "long-columns", "float-columns", "double-columns", "string-columns", "time-columns",
-            "parquet-size", "excluded", "unique-strings", "timezone","headers","retain-hashes"};
+            "parquet-size", "excluded", "unique-strings", "timezone","headers","retain-hashes","trajectoryID"};
 
     private final Set<String> propertySet = new HashSet<>(Arrays.asList(propertyNames));
 
     private String[] headerArray;
+
+    private String trajectory = "";
 
     private List<String> examples = new LinkedList<>();
 
@@ -324,6 +326,7 @@ public class Ldb4RdbConverter {
                     list.add(jo);
             }
         }
+
         mainjson.put("fields", list);
         return mainjson;
     }
@@ -379,6 +382,20 @@ public class Ldb4RdbConverter {
                 row.put("attributeId", field.name());
                 data.add(row);
             }
+        }
+        if(!trajectory.equals("")){
+            JSONObject traj = new JSONObject();
+            traj.put("hidden", true);
+            traj.put("attributeName", "Trajectory");
+            traj.put("idField", trajectory);
+            traj.put("lonAttributeId","lon");
+            traj.put("latAttributeId","lat");
+            traj.put("guiType","trajectory");
+            traj.put("group","trajectories");
+            JSONArray infoList = new JSONArray();
+            traj.put("infoAttributes",infoList);
+            traj.put("attributeId","trajectory_1");
+            data.add(traj);
         }
         attributeTr.put("data", data);
 
@@ -594,6 +611,10 @@ public class Ldb4RdbConverter {
         if (defaultProp.containsKey("timezone")) {
             timeZone = defaultProp.getProperty("timezone");
         }
+        if (defaultProp.containsKey("trajectoryID")) {
+            trajectory = defaultProp.getProperty("trajectoryID");
+        }
+
         for (String key : defaultProp.stringPropertyNames()) {
             if (!propertySet.contains(key)) {
                 String propInfo = defaultProp.getProperty(key);
