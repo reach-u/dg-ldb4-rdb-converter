@@ -15,7 +15,7 @@ public class ConfigurationGUI extends Application {
     @Override
     public void start(Stage primaryStage) throws Exception{
         Parent root = FXMLLoader.load(getClass().getClassLoader().getResource("mainScreen.fxml"));
-        primaryStage.setTitle("Automatic parquet generation");
+        primaryStage.setTitle("Parquet configuration generation");
         primaryStage.setScene(new Scene(root, 400, 400));
         primaryStage.show();
     }

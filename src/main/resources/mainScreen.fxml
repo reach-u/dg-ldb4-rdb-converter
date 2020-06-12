@@ -8,7 +8,7 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.control.Button?>
 <AnchorPane fx:controller="com.demograft.ldb4rdbconverter.GUIController" xmlns:fx="http://javafx.com/fxml" prefHeight="400.0" prefWidth="400.0">
-    <Label AnchorPane.topAnchor="100" prefWidth="400" text="Automatic parquet generation tool" wrapText="true" alignment="CENTER">
+    <Label AnchorPane.topAnchor="100" prefWidth="400" text="Automatic parquet configuration tool" wrapText="true" alignment="CENTER">
     </Label>
     <Label AnchorPane.topAnchor="150" AnchorPane.leftAnchor="50" prefWidth="300" text="Press Create New to create a new configuration file or Load Existing to load an existing one" alignment="CENTER" textAlignment="CENTER" wrapText="true">
     </Label>

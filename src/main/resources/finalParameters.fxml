@@ -18,7 +18,7 @@
             <HBox AnchorPane.topAnchor="60" AnchorPane.leftAnchor="50" spacing="23">
                 <VBox>
                     <HBox spacing="20">
-                        <Label text="Unique string limit for warning:" prefWidth="120" alignment="BASELINE_RIGHT">
+                        <Label text="Unique string warn:" prefWidth="120" alignment="BASELINE_RIGHT">
 
                         </Label>
                         <TextField fx:id="stringWarning">
@@ -40,7 +40,7 @@
                         </Label>
                     </HBox>
                     <HBox spacing="20">
-                        <Label text="Name of the configuration:" prefWidth="120" alignment="BASELINE_RIGHT">
+                        <Label text="Configuration name:" prefWidth="120" alignment="BASELINE_RIGHT">
 
                         </Label>
                         <TextField fx:id="confName">
