@@ -1,0 +1,21 @@
+{
+    "namespace": "com.demograft.ldb4rdbconverter",
+    "type": "record",
+    "name": "TestRecord",
+    "fields": [
+            {"name": "lat", "type": "double"},
+            {"name": "lon", "type": "double"},
+            {"name": "time", "type": "long"},
+            {"name": "cellIdentifier", "type": "string"},
+            {"name": "geometryType", "type": ["null", "string"], "default": null},
+            {"name": "geometryLatitude", "type": ["null", "double"], "default": null},
+            {"name": "geometryLongitude", "type": ["null", "double"], "default": null},
+            {"name": "orientationMajorAxis", "type": ["null", "float"], "default": null},
+            {"name": "innerSemiMajorRadius", "type": ["null", "float"], "default": null},
+            {"name": "innerSemiMinorRadius", "type": ["null", "float"], "default": null},
+            {"name": "outerSemiMajorRadius", "type": ["null", "float"], "default": null},
+            {"name": "outerSemiMinorRadius", "type": ["null", "float"], "default": null},
+            {"name": "startAngle", "type": ["null", "float"], "default": null},
+            {"name": "stopAngle", "type": ["null", "float"], "default": null}
+    ]
+}

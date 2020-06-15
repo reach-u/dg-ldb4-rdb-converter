@@ -1,4 +1,4 @@
-package com.demograft.ldb4rdbconverter;
+package com.demograft.ldb4rdbconverter.utils;
 
 import org.junit.Test;
 
@@ -7,7 +7,6 @@ import java.time.format.DateTimeFormatter;
 import static org.junit.Assert.assertEquals;
 
 public class TimeUtilsTest {
-
 
     private final DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS xx");
 
