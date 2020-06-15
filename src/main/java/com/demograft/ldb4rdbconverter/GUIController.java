@@ -147,6 +147,7 @@ public class GUIController {
             CsvParserSettings settings = new CsvParserSettings();
             settings.getFormat().setLineSeparator("\n");
             settings.setMaxColumns(1_000);
+            settings.setQuoteDetectionEnabled(true);
             CsvParser parser = new CsvParser(settings);
             parser.beginParsing(AppData.getInputFile());
             String[] headerArray = parser.parseNextRecord().getValues();
