@@ -1,4 +1,4 @@
-package com.demograft.ldb4rdbconverter;
+package com.demograft.ldb4rdbconverter.utils;
 
 import lombok.experimental.UtilityClass;
 

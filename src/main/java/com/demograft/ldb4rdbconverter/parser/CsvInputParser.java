@@ -1,12 +1,12 @@
 package com.demograft.ldb4rdbconverter.parser;
 
-import com.univocity.parsers.common.fields.FieldSet;
 import com.univocity.parsers.common.record.Record;
 import com.univocity.parsers.csv.CsvFormat;
 import com.univocity.parsers.csv.CsvParser;
 import com.univocity.parsers.csv.CsvParserSettings;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
 import java.io.*;
 import java.lang.reflect.Field;
 import java.util.List;
@@ -23,11 +23,12 @@ public class CsvInputParser implements InputParser {
         CsvParserSettings settings = new CsvParserSettings();
         settings.getFormat().setLineSeparator("\n");
         settings.setMaxColumns(1000);
+        settings.setQuoteDetectionEnabled(true);
         settings.setMaxCharsPerColumn(-1);
         parser = new CsvParser(settings);
     }
 
-    public CsvInputParser(String[] headers){
+    public CsvInputParser(String[] headers) {
         CsvParserSettings settings = new CsvParserSettings();
         settings.setFormat(new CsvFormat());
         settings.getFormat().setLineSeparator("\n");
@@ -78,7 +79,6 @@ public class CsvInputParser implements InputParser {
         }
         return new CsvInputRecord(record);
     }
-
 
     @Override
     public void stopParsing() {
