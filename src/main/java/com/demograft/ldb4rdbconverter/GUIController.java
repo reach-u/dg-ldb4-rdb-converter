@@ -46,6 +46,10 @@ public class GUIController {
     Button selectPreviousBack;
     @FXML
     Button selectNewBack;
+    @FXML
+    Label previousData;
+    @FXML
+    Button selectPreviousDataButton;
 
     private void determineInitialTypes(List<String> headers, List<String> examples){
         HashMap<String, String> map = AppData.getTypeMap();
@@ -111,6 +115,21 @@ public class GUIController {
     }
 
     @FXML
+    private void selectPreviousDataClicked(){
+        FileChooser fileChooser = new FileChooser();
+        Stage secondStage = new Stage();
+        File inputFile = fileChooser.showOpenDialog(secondStage);
+        AppData.setPreviousData(inputFile);
+        if(inputFile != null) {
+            previousData.setText("File:" + inputFile.getName());
+        }
+        else{
+            AppData.setPreviousData(null);
+            previousData.setText("No file selected");
+        }
+    }
+
+    @FXML
     private void selectPreviousBackClicked() throws Exception{
         stage = (Stage) selectPreviousBack.getScene().getWindow();
         root = FXMLLoader.load(getClass().getClassLoader().getResource("mainScreen.fxml"));
@@ -172,17 +191,29 @@ public class GUIController {
     private void selectPreviousFileClicked(){
         FileChooser fileChooser = new FileChooser();
         Stage secondStage = new Stage();
-        File configFile = fileChooser.showOpenDialog(secondStage);
-        AppData.setConfigFile(configFile);
-        if(configFile != null) {
-            previousFile.setText("File:" + configFile.getName());
+        File inputFile = fileChooser.showOpenDialog(secondStage);
+        AppData.setPreviousConfig(inputFile);
+        if(inputFile != null) {
+            previousFile.setText("File:" + inputFile.getName());
+        }
+        else{
+            AppData.setPreviousConfig(null);
+            previousFile.setText("No file selected");
         }
     }
     @FXML
     private void previousFileNextClicked() throws Exception {
-        if (AppData.getConfigFile() == null) {
+        if (AppData.getPreviousConfig() == null || AppData.getPreviousData() == null) {
             previousFileError.setVisible(true);
         } else {
+            CsvParserSettings settings = new CsvParserSettings();
+            settings.getFormat().setLineSeparator("\n");
+            settings.setMaxColumns(1000);
+            CsvParser parser = new CsvParser(settings);
+            parser.beginParsing(AppData.getPreviousData());
+            String[] headerArray = parser.parseNextRecord().getValues();
+            int headerNr = headerArray.length;
+
             stage = (Stage) loadExistingNext.getScene().getWindow();
             root = FXMLLoader.load(getClass().getClassLoader().getResource("determineMainAttributes.fxml"));
             Scene scene = new Scene(root, 700, 600);

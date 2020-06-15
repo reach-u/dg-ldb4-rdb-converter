@@ -9,6 +9,17 @@ import java.util.List;
 
 public class AppData {
     private static File inputFile = null;
+    private static File previousConfig = null;
+    private static File previousData = null;
+
+    public static File getPreviousData() {
+        return previousData;
+    }
+
+    public static void setPreviousData(File previousData) {
+        AppData.previousData = previousData;
+    }
+
     private static File configFile = null;
     private static String configName = "";
     private static String longitude = "";
@@ -236,6 +247,14 @@ public class AppData {
 
     public static void setRemoved(List<String> removed) {
         AppData.removed = removed;
+    }
+
+    public static File getPreviousConfig() {
+        return previousConfig;
+    }
+
+    public static void setPreviousConfig(File previousConfig) {
+        AppData.previousConfig = previousConfig;
     }
 
     public static boolean mainSet(){

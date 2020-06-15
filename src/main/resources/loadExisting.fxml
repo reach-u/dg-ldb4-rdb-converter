@@ -12,18 +12,25 @@
             prefHeight="400.0" prefWidth="400.0">
     <Label AnchorPane.topAnchor="30" AnchorPane.leftAnchor="100" text="Load an existing configuration from a file">
     </Label>
-    <Label fx:id="previousFile" text="Select your previous configuration file" AnchorPane.leftAnchor="170" AnchorPane.topAnchor="100">
+    <Label fx:id="previousFile" text="Select your previous configuration file" AnchorPane.leftAnchor="180" AnchorPane.topAnchor="100">
 
     </Label>
-    <Button fx:id="selectPreviousButton" onAction="#selectPreviousFileClicked" AnchorPane.topAnchor="100" AnchorPane.leftAnchor="80" text="Choose file">
+    <Button prefWidth="100" fx:id="selectPreviousButton" onAction="#selectPreviousFileClicked" AnchorPane.topAnchor="100" AnchorPane.leftAnchor="60" text="Choose file">
 
     </Button>
+    <Label fx:id="previousData" text="Select your previous configuration data" AnchorPane.leftAnchor="180" AnchorPane.topAnchor="140">
+
+    </Label>
+    <Button prefWidth="100" fx:id="selectPreviousDataButton" onAction="#selectPreviousDataClicked" AnchorPane.topAnchor="140" AnchorPane.leftAnchor="60" text="Choose Data">
+
+    </Button>
+
     <Button fx:id="selectPreviousBack" onAction="#selectPreviousBackClicked" AnchorPane.bottomAnchor="50" AnchorPane.leftAnchor="50" text="Back">
 
     </Button>
     <Button fx:id="loadExistingNext" onAction="#previousFileNextClicked" AnchorPane.rightAnchor="50" AnchorPane.bottomAnchor="50" text="Next">
 
     </Button>
-    <Label fx:id="previousFileError" textFill="red" visible="false" AnchorPane.topAnchor="140" AnchorPane.rightAnchor="130" prefWidth="200" text="Please select a file">
+    <Label fx:id="previousFileError" style="-fx-font: 16 times-new-roman;" textFill="red" visible="false" AnchorPane.bottomAnchor="50" AnchorPane.leftAnchor="125" text="Both files are required">
     </Label>
 </AnchorPane>
