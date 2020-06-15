@@ -11,6 +11,7 @@ import com.demograft.ldb4rdbconverter.utils.TimeUtils;
 import com.univocity.parsers.csv.CsvParser;
 import com.univocity.parsers.csv.CsvParserSettings;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.JsonProperties;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.hadoop.conf.Configuration;
@@ -117,18 +118,6 @@ public class Ldb4RdbConverter {
 
     private List<HashMap<String, Long>> hashTables = new ArrayList<>();
 
-    private HashMap<String, Integer[]> statsTable = new HashMap<>();
-
-    private HashMap<String, Float[]> minMaxTable = new HashMap<>();
-
-    private HashMap<String, Set<String>> uniqueStrings = new HashMap<>();
-
-    private int parquetSize = 0;
-
-    private int uniqueMax = Integer.MAX_VALUE;
-
-    private boolean predefinedHeaders = false;
-
     /* Statistics look as follows: 4 numbers for each row, they indicate:
         1. Number of non-null values
         2. Number of malformed values
@@ -141,6 +130,18 @@ public class Ldb4RdbConverter {
         2. Max value of this column
 
        */
+
+    private HashMap<String, Integer[]> statsTable = new HashMap<>();
+
+    private HashMap<String, Float[]> minMaxTable = new HashMap<>();
+
+    private HashMap<String, Set<String>> uniqueStrings = new HashMap<>();
+
+    private int parquetSize = 0;
+
+    private int uniqueMax = Integer.MAX_VALUE;
+
+    private boolean predefinedHeaders = false;
 
     private HashMap<String, Schema.Type> typeTable = new HashMap<>();
 
@@ -248,6 +249,7 @@ public class Ldb4RdbConverter {
         else {
 
             // Try to determine type
+
             try {
                 TimeUtils.timeToMillisecondsConverter(example, timeFormatter, inputEpochInMilliseconds, timeZone);
                 jo.put("name", headername);
@@ -272,6 +274,7 @@ public class Ldb4RdbConverter {
             }
 
             // All undefinable data types are marked as strings.
+
             catch (NullPointerException e1) {
                 jo.put("name", headername);
                 jo.put("type", JsonUtils.getNullableStringType());
@@ -293,6 +296,7 @@ public class Ldb4RdbConverter {
             JSONObject jo = new JSONObject();
 
             // Check if it is one of the three important rows: longitude, latitude and time.
+
             if (headername.equals(longitude)) {
                 jo.put("name", "lon");
                 jo.put("type", "double");
@@ -333,6 +337,7 @@ public class Ldb4RdbConverter {
             }
 
             // Then try to determine column type
+
             else {
                 jo = determineType(headername, example);
             }
@@ -513,6 +518,7 @@ public class Ldb4RdbConverter {
             parser.stopParsing();
         }
     }
+
 
     private void checkValidity(List<String> headers) {
         for (String configValue : rowNulls.keySet()) {
@@ -1035,7 +1041,7 @@ public class Ldb4RdbConverter {
                 statsTable.put(field.name(), stat);
             }
         }
-        // check wether it is the newly generated field for retainHashes by checking it's final 4 symbols
+        // check whether it is the newly generated field for retainHashes by checking it's final 4 symbols
         else if(field.name().endsWith("_IDs")){
             String fieldName = field.name();
             Integer index = hashColumns.size() + retainHashes.indexOf(field.name().substring(0, field.name().length() - 4));
@@ -1051,7 +1057,9 @@ public class Ldb4RdbConverter {
                 statsTable.put(field.name(), stat);
             }
         }
-        // Check wether it a generated row by one of the token Files.
+
+        // Check whether it's a generated row by one of the token Files.
+
         else if (tokenHeaders.keySet().contains(field.name())){
             try{
                 String fieldName = field.name();
@@ -1211,6 +1219,7 @@ public class Ldb4RdbConverter {
     }
 
     private void run() {
+
         if (configFile.equals("")) {
             throw new RuntimeException("Configuration file not set, cannot proceed.");
         }
@@ -1307,6 +1316,7 @@ public class Ldb4RdbConverter {
             HashMap<String, Long> toAdd = new HashMap<>();
             hashTables.add(toAdd);
         }
+
 
         Arrays.fill(hashMapCounters, 0L);
 
