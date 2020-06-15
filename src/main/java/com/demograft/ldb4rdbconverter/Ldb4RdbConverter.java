@@ -395,12 +395,22 @@ public class Ldb4RdbConverter {
                     row.put("guiType", "dateTime");
                 }
                 data.add(row);
-            } else {
+            }
+            else {
                 row.put("attributeName", formattedName);
                 row.put("attributeTooltip", formattedName);
                 row.put("group", "Generic");
                 row.put("attributeId", field.name());
                 data.add(row);
+            }
+        }
+        if (!radius.equals("") || !cellLocationIdentifier.equals("")) {
+            for (String geometryHeader : derivedFields) {
+                JSONObject geoData = new JSONObject();
+                geoData.put("group", "Geographic Location");
+                geoData.put("attributeName", geometryHeader);
+                geoData.put("attributeId", geometryHeader);
+                geoData.put("attributeTooltip", geometryHeader);
             }
         }
         if(!trajectory.equals("")){
