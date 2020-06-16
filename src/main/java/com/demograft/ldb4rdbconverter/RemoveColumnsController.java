@@ -2,6 +2,7 @@ package com.demograft.ldb4rdbconverter;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -44,6 +45,10 @@ public class RemoveColumnsController {
     Button removeRowsBack;
     @FXML
     TableView<DataRow> mainTable;
+    @FXML
+    TextField searchBar;
+    private FilteredList<DataRow> filteredList;
+    private ObservableList<DataRow> dataList;
 
     public void initialize() {
         backupMap = new HashMap<>(AppData.getTypeMap());
@@ -64,13 +69,19 @@ public class RemoveColumnsController {
                 copySelectionToClipboard(mainTable);
             }
         });
+        dataList = FXCollections.observableArrayList(AppData.getGUIexamples());
+        filteredList = new FilteredList<>(dataList, p -> true);
+        searchBar.setOnKeyReleased(keyEvent -> {
+            filteredList.setPredicate(p -> p.getHeader().toLowerCase().contains(searchBar.getText().toLowerCase().trim()));
+        });
+        mainTable.setItems(filteredList);
         updateTable();
     }
 
     @FXML
     private void updateTable(){
         List<DataRow> newList = new ArrayList<>();
-        for(int i = 0; i < AppData.getHeaderList().size() - 1; i++){
+        for(int i = 0; i < AppData.getHeaderList().size(); i++){
             List<String> headers = AppData.getHeaderList();
             StringBuilder sb = new StringBuilder();
             for(int j = 0; j < 3; j++){
@@ -80,8 +91,8 @@ public class RemoveColumnsController {
             newList.add(row);
         }
         AppData.setGUIexamples(newList);
-        ObservableList<DataRow> olist = FXCollections.observableArrayList(newList);
-        mainTable.setItems(olist);
+        dataList.clear();
+        dataList.addAll(newList);
     }
     @FXML
     private void removeRowsBackClicked() throws IOException{

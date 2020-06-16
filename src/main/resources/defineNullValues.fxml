@@ -91,6 +91,12 @@
             </Button>
             <Button fx:id="defineNullsNext" onAction="#nullsNext" text="Next" AnchorPane.bottomAnchor="5" AnchorPane.rightAnchor="50" prefWidth="80" prefHeight="30">
             </Button>
+            <Label text="Search headers:" AnchorPane.bottomAnchor="20" AnchorPane.rightAnchor="430">
+
+            </Label>
+            <TextField fx:id="searchBar" prefWidth="120" AnchorPane.bottomAnchor="15" AnchorPane.rightAnchor="300">
+
+            </TextField>
         </AnchorPane>
     </SplitPane>
 </AnchorPane>

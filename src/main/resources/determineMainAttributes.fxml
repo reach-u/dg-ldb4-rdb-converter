@@ -52,6 +52,9 @@
 
                 </Button>
             </HBox>
+            <Label textFill="red" fx:id="mainAttrError" text="All fields are required." AnchorPane.bottomAnchor="30" AnchorPane.rightAnchor="100" visible="false">
+
+            </Label>
         </AnchorPane>
         <AnchorPane prefHeight="450" prefWidth="700">
             <TableView fx:id="mainTable" AnchorPane.topAnchor="10" AnchorPane.leftAnchor="50" prefWidth="600" prefHeight="380">
@@ -73,11 +76,14 @@
                     </TableColumn>
                 </columns>
             </TableView>
-            <Label textFill="red" fx:id="mainAttrError" text="All fields are required to proceed. Please select a column for each." AnchorPane.bottomAnchor="20" AnchorPane.leftAnchor="50" visible="false">
-
-            </Label>
             <Button fx:id="mainAttributesNext" onAction="#mainAttributesNextClicked" text="Next" AnchorPane.bottomAnchor="20" AnchorPane.rightAnchor="50" prefWidth="80" prefHeight="30">
             </Button>
+            <Label text="Search headers:" AnchorPane.bottomAnchor="20" AnchorPane.rightAnchor="430">
+
+            </Label>
+            <TextField fx:id="searchBar" prefWidth="120" AnchorPane.bottomAnchor="15" AnchorPane.rightAnchor="300">
+
+            </TextField>
         </AnchorPane>
     </SplitPane>
 </AnchorPane>

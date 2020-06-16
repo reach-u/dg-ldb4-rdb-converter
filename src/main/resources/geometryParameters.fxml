@@ -23,7 +23,7 @@
             <HBox AnchorPane.topAnchor="65" AnchorPane.leftAnchor="50" spacing="23">
                 <VBox>
                     <HBox spacing="20">
-                        <Label text="Cell-loc-Id:" prefWidth="120" alignment="BASELINE_RIGHT">
+                        <Label text="Intersite distance field:" prefWidth="120" alignment="BASELINE_RIGHT">
 
                         </Label>
                         <TextField disable="true" fx:id="cellLocationId">
@@ -72,6 +72,12 @@
             </Button>
             <Button fx:id="nextButton" onAction="#nextClicked" text="Next" AnchorPane.bottomAnchor="20" AnchorPane.rightAnchor="50" prefWidth="80" prefHeight="30">
             </Button>
+            <Label text="Search headers:" AnchorPane.bottomAnchor="20" AnchorPane.rightAnchor="430">
+
+            </Label>
+            <TextField fx:id="searchBar" prefWidth="120" AnchorPane.bottomAnchor="15" AnchorPane.rightAnchor="300">
+
+            </TextField>
         </AnchorPane>
     </SplitPane>
 </AnchorPane>

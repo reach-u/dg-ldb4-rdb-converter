@@ -2,6 +2,7 @@ package com.demograft.ldb4rdbconverter;
 
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -40,6 +41,11 @@ public class MainAttributesController {
     Button mainRowsButton;
     @FXML
     Button mainAttributesNext;
+    @FXML
+    TextField searchBar;
+    @FXML
+    private FilteredList<DataRow> filteredList;
+    private ObservableList<DataRow> dataList;
 
     public void initialize() {
         mainTable.getSelectionModel().setCellSelectionEnabled(true);
@@ -53,6 +59,12 @@ public class MainAttributesController {
                 copySelectionToClipboard(mainTable);
             }
         });
+        dataList = FXCollections.observableArrayList(AppData.getGUIexamples());
+        filteredList = new FilteredList<>(dataList, p -> true);
+        searchBar.setOnKeyReleased(keyEvent -> {
+            filteredList.setPredicate(p -> p.getHeader().toLowerCase().contains(searchBar.getText().toLowerCase().trim()));
+        });
+        mainTable.setItems(filteredList);
         updateTable();
     }
 
@@ -69,8 +81,8 @@ public class MainAttributesController {
             newList.add(row);
         }
         AppData.setGUIexamples(newList);
-        ObservableList<DataRow> olist = FXCollections.observableArrayList(newList);
-        mainTable.setItems(olist);
+        dataList.clear();
+        dataList.addAll(newList);
     }
 
     @FXML

@@ -4,6 +4,7 @@ import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 import javafx.fxml.FXML;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -44,6 +45,11 @@ public class GeometryController {
     CheckBox uncertainty;
     @FXML
     Label geometryError;
+    @FXML
+    TextField searchBar;
+    @FXML
+    private FilteredList<DataRow> filteredList;
+    private ObservableList<DataRow> dataList;
 
 
     public void initialize() {
@@ -77,6 +83,12 @@ public class GeometryController {
                 }
             }
         });
+        dataList = FXCollections.observableArrayList(AppData.getGUIexamples());
+        filteredList = new FilteredList<>(dataList, p -> true);
+        searchBar.setOnKeyReleased(keyEvent -> {
+            filteredList.setPredicate(p -> p.getHeader().toLowerCase().contains(searchBar.getText().toLowerCase().trim()));
+        });
+        mainTable.setItems(filteredList);
         updateTable();
     }
 
@@ -93,8 +105,8 @@ public class GeometryController {
             newList.add(row);
         }
         AppData.setGUIexamples(newList);
-        ObservableList<DataRow> olist = FXCollections.observableArrayList(newList);
-        mainTable.setItems(olist);
+        dataList.clear();
+        dataList.addAll(newList);
     }
 
     @FXML
