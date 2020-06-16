@@ -7,9 +7,9 @@
 <AnchorPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
             fx:controller="com.demograft.ldb4rdbconverter.ConfirmationScreenController"
-            maxHeight="600" maxWidth="700"
+            maxHeight="600" maxWidth="1400"
 >
-    <SplitPane dividerPositions="0.583" prefHeight="600" prefWidth="1200" AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0">
+    <SplitPane dividerPositions="0.583" maxHeight="600" maxWidth="1200" AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0">
         <AnchorPane prefHeight="600" prefWidth="700">
             <Label AnchorPane.topAnchor="20" AnchorPane.leftAnchor="200" text="Final configuration overview" style="-fx-font: 18 arial;">
 
@@ -40,7 +40,7 @@
 
             </Button>
         </AnchorPane>
-        <AnchorPane prefHeight="600" prefWidth="700">
+        <AnchorPane maxHeight="600" maxWidth="700">
             <VBox AnchorPane.topAnchor="20" AnchorPane.leftAnchor="20" spacing="5">
                 <HBox>
                     <Label prefWidth="70" text="Latitude:">
@@ -78,7 +78,7 @@
                     <Label prefWidth="70" text="Removed:">
 
                     </Label>
-                    <Label fx:id="excludedLabel" wrapText="true" maxWidth="400">
+                    <Label fx:id="excludedLabel" wrapText="true" maxWidth="400" maxHeight="80">
 
                     </Label>
                 </HBox>
@@ -102,7 +102,7 @@
                     <Label prefWidth="70" text="String cols:">
 
                     </Label>
-                    <Label fx:id="stringColumnsLabel" wrapText="true" maxWidth="400">
+                    <Label fx:id="stringColumnsLabel" wrapText="true" maxWidth="400" maxHeight="80">
 
                     </Label>
                 </HBox>
@@ -118,7 +118,7 @@
                     <Label prefWidth="70" text="Float cols:">
 
                     </Label>
-                    <Label fx:id="floatColumnsLabel" wrapText="true" maxWidth="400">
+                    <Label fx:id="floatColumnsLabel" wrapText="true" maxWidth="400" maxHeight="80">
 
                     </Label>
                 </HBox>
@@ -134,7 +134,7 @@
                     <Label prefWidth="70" text="Double cols:">
 
                     </Label>
-                    <Label fx:id="doubleColumnsLabel" wrapText="true" maxWidth="400">
+                    <Label fx:id="doubleColumnsLabel" wrapText="true" maxWidth="400" maxHeight="80">
 
                     </Label>
                 </HBox>
@@ -150,7 +150,7 @@
                     <Label prefWidth="70" text="Time cols:">
 
                     </Label>
-                    <Label fx:id="timeColumnsLabel" wrapText="true" maxWidth="400">
+                    <Label fx:id="timeColumnsLabel" wrapText="true" maxWidth="400" maxHeight="80">
 
                     </Label>
                 </HBox>

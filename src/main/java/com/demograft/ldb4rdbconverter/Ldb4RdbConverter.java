@@ -67,7 +67,7 @@ public class Ldb4RdbConverter {
             "time", "start-time", "end-time", "columns-to-map-long", "headers", "long-null-values", "double-null-values",
             "float-null-values", "long-columns", "float-columns", "double-columns", "string-columns", "time-columns",
             "parquet-size", "excluded", "unique-strings", "timezone","headers","retain-hashes","trajectoryID","tokenFiles",
-            "is-coordinate-randomized-in-uncertainty", "radius", "cell-location-identifier", "cell-location-equality-tolerance"};
+            "is-coordinate-randomized-in-uncertainty", "radius", "cell-location-identifier", "cell-location-equality-tolerance","default-type"};
 
     Set<String> derivedFields = Stream.of("geometryType", "geometryLatitude", "geometryLongitude", "orientationMajorAxis",
         "innerSemiMajorRadius", "innerSemiMinorRadius", "outerSemiMajorRadius", "outerSemiMinorRadius",
@@ -79,6 +79,8 @@ public class Ldb4RdbConverter {
     private String[] headerArray;
 
     private String trajectory = "";
+
+    private String defaultType = "string";
 
     private List<String> examples = new LinkedList<>();
 
@@ -267,7 +269,7 @@ public class Ldb4RdbConverter {
                     if (hashColumns.contains(headername)) {
                         typelist.add("long");
                     } else {
-                        typelist.add("string");
+                        typelist.add(defaultType);
                     }
                     jo.put("type", typelist);
                 }
@@ -574,6 +576,15 @@ public class Ldb4RdbConverter {
         }
         if (defaultProp.containsKey("parquet-size")) {
             parquetSize = Integer.parseInt(defaultProp.getProperty("parquet-size"));
+        }
+
+        if (defaultProp.containsKey("default-type")) {
+            if(!defaultProp.getProperty("default-type").equals("float") || !defaultProp.getProperty("default-type").equals("double")){
+                log.info("Wrong default type chosen in the configuration file. Defaulting to string");
+            }
+            else{
+                defaultType=defaultProp.getProperty("default-type");
+            }
         }
 
         if(defaultProp.containsKey("columns-to-map-long")) {
