@@ -1,5 +1,7 @@
 package com.demograft.ldb4rdbconverter;
 
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.fxml.FXML;
@@ -19,31 +21,30 @@ import java.util.Map;
 
 import static com.demograft.ldb4rdbconverter.Helpers.copySelectionToClipboard;
 
-public class SpecialRowsController {
+public class GeometryController {
 
     private Stage stage;
     private Parent root;
 
     @FXML
-    TextField timeRows;
+    TextField cellLocationId;
     @FXML
-    Label timeError;
+    TextField radiusField;
     @FXML
-    TextField IDRows;
+    CheckBox checkBox;
     @FXML
-    Label uniqueError;
+    Button updateGeometry;
     @FXML
     TableView<DataRow> mainTable;
-    @FXML
-    Button updateRows;
     @FXML
     Button backButton;
     @FXML
     Button nextButton;
     @FXML
-    TextField timeFormat;
+    CheckBox uncertainty;
     @FXML
-    Label formatError;
+    Label geometryError;
+
 
     public void initialize() {
         mainTable.getSelectionModel().setCellSelectionEnabled(true);
@@ -55,6 +56,25 @@ public class SpecialRowsController {
         mainTable.setOnKeyPressed(event -> {
             if (keyCodeCopy.match(event)) {
                 copySelectionToClipboard(mainTable);
+            }
+        });
+
+        // Add a listener to only make the geometry fields editable when the checkbox is selected
+
+        checkBox.selectedProperty().addListener(new ChangeListener<Boolean>() {
+            @Override
+            public void changed(ObservableValue<? extends Boolean> observable, Boolean oldValue, Boolean newValue) {
+                if(newValue){
+                    cellLocationId.setDisable(false);
+                    radiusField.setDisable(false);
+                    uncertainty.setDisable(false);
+                    updateGeometry.setDisable(false);
+                }else{
+                    cellLocationId.setDisable(true);
+                    radiusField.setDisable(true);
+                    uncertainty.setDisable(true);
+                    updateGeometry.setDisable(true);
+                }
             }
         });
         updateTable();
@@ -79,47 +99,42 @@ public class SpecialRowsController {
 
     @FXML
     private void update(){
-        List<String> validHeaders = AppData.getHeaderList();
         Map<String, String> types = AppData.getTypeMap();
-        if(!timeRows.getText().equals("")) {
-            String[] headers = timeRows.getText().split(",");
-            List<String> newTimes = new ArrayList<>();
-            for (String header : headers) {
-                if (validHeaders.contains(header)) {
-                    newTimes.add(header);
-                    timeError.setVisible(false);
-                    types.put(header, "Long(Time)");
-                } else {
-                    timeError.setVisible(true);
-                    timeError.setText("Invalid header: " + header);
-                    break;
-                }
-            }
-            AppData.setTimeRows(newTimes);
+        if(cellLocationId.getText().equals("") && radiusField.getText().equals("")){
+            geometryError.setText("One field is required");
+            geometryError.setVisible(true);
         }
-        AppData.setTimeExample(timeFormat.getText());
-        if(!IDRows.getText().equals("")) {
-            String[] uniqueHeaders = IDRows.getText().split(",");
-            List<String> newUniques = new ArrayList<>();
-            for (String header : uniqueHeaders) {
-                if (validHeaders.contains(header)) {
-                    newUniques.add(header);
-                    uniqueError.setVisible(false);
-                    types.put(header, "Long(Hashed)");
-                } else {
-                    uniqueError.setVisible(true);
-                    uniqueError.setText("Invalid header: " + header);
-                    break;
-                }
+        if(!cellLocationId.getText().equals("") && AppData.getHeaderList().contains(cellLocationId.getText())){
+            types.put(cellLocationId.getText(), "CellId");
+            geometryError.setVisible(false);
+            AppData.setCellId(cellLocationId.getText());
+            if(uncertainty.isSelected()){
+                AppData.setUncertainty("true");
             }
-            AppData.setHashedRows(newUniques);
+            else{
+                AppData.setUncertainty("false");
+            }
+        }
+        if(!radiusField.getText().equals("") && AppData.getHeaderList().contains(radiusField.getText())){
+            types.put(radiusField.getText(), "Radius");
+            geometryError.setVisible(false);
+            AppData.setRadiusField(radiusField.getText());
+            if(uncertainty.isSelected()){
+                AppData.setUncertainty("true");
+            }
+            else{
+                AppData.setUncertainty("false");
+            }
+
         }
         updateTable();
     }
+
+
     @FXML
     private void backClicked() throws IOException {
         stage = (Stage) backButton.getScene().getWindow();
-        root = FXMLLoader.load(getClass().getClassLoader().getResource("rowTypes.fxml"));
+        root = FXMLLoader.load(getClass().getClassLoader().getResource("specialRows.fxml"));
         Scene scene = new Scene(root, 700, 600);
         stage.setScene(scene);
         stage.show();
@@ -127,9 +142,11 @@ public class SpecialRowsController {
     @FXML
     private void nextClicked() throws IOException{
         stage = (Stage) backButton.getScene().getWindow();
-        root = FXMLLoader.load(getClass().getClassLoader().getResource("geometryParameters.fxml"));
+        root = FXMLLoader.load(getClass().getClassLoader().getResource("finalParameters.fxml"));
         Scene scene = new Scene(root, 700, 600);
         stage.setScene(scene);
         stage.show();
     }
+
+
 }

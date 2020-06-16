@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import java.lang.*?>
+<?import java.util.*?>
+<?import javafx.scene.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<?import javafx.scene.control.cell.PropertyValueFactory?>
+<AnchorPane xmlns="http://javafx.com/javafx"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.demograft.ldb4rdbconverter.GeometryController">
+    <SplitPane dividerPositions="0.25" orientation="VERTICAL" prefHeight="600" prefWidth="700" AnchorPane.topAnchor="0" AnchorPane.leftAnchor="0">
+        <AnchorPane prefHeight="150" prefWidth="700">
+            <Label text="Geometry parameters" style="-fx-font: 16 times-new-roman;" AnchorPane.leftAnchor="20" AnchorPane.topAnchor="20" alignment="CENTER" textAlignment="CENTER">
+            </Label>
+            <CheckBox fx:id="checkBox"  AnchorPane.leftAnchor="200" AnchorPane.topAnchor="30" text="Use geometry?">
+
+            </CheckBox>
+            <CheckBox disable="true" fx:id="uncertainty" text="Randomise uncertainty?" AnchorPane.leftAnchor="200" AnchorPane.bottomAnchor="5">
+
+            </CheckBox>
+            <HBox AnchorPane.topAnchor="65" AnchorPane.leftAnchor="50" spacing="23">
+                <VBox>
+                    <HBox spacing="20">
+                        <Label text="Cell-loc-Id:" prefWidth="120" alignment="BASELINE_RIGHT">
+
+                        </Label>
+                        <TextField disable="true" fx:id="cellLocationId">
+
+                        </TextField>
+                    </HBox>
+                    <HBox spacing="20">
+                        <Label text="Radius field:" prefWidth="120" alignment="BASELINE_RIGHT">
+
+                        </Label>
+                        <TextField disable="true" fx:id="radiusField">
+
+                        </TextField>
+                    </HBox>
+                </VBox>
+                <Button disable="true" fx:id="updateGeometry" onAction="#update" text="Update" AnchorPane.rightAnchor="40" AnchorPane.bottomAnchor="30">
+
+                </Button>
+                <Label fx:id="geometryError" textFill="red" visible="false" AnchorPane.rightAnchor="250" AnchorPane.bottomAnchor="50">
+
+                </Label>
+            </HBox>
+        </AnchorPane>
+        <AnchorPane prefHeight="450" prefWidth="700">
+            <TableView fx:id="mainTable" AnchorPane.topAnchor="10" AnchorPane.leftAnchor="50" prefWidth="600" prefHeight="380">
+                <columns>
+                    <TableColumn text="Property name" prefWidth="180">
+                        <cellValueFactory>
+                            <PropertyValueFactory property="header" />
+                        </cellValueFactory>
+                    </TableColumn>
+                    <TableColumn text="Type" prefWidth="120">
+                        <cellValueFactory>
+                            <PropertyValueFactory property="type" />
+                        </cellValueFactory>
+                    </TableColumn>
+                    <TableColumn text="Examples from this row" prefWidth="300">
+                        <cellValueFactory>
+                            <PropertyValueFactory property="examples" />
+                        </cellValueFactory>
+                    </TableColumn>
+                </columns>
+            </TableView>
+            <Button fx:id="backButton" onAction="#backClicked" text="Back" AnchorPane.bottomAnchor="20" AnchorPane.leftAnchor="60" prefWidth="80" prefHeight="30">
+
+            </Button>
+            <Button fx:id="nextButton" onAction="#nextClicked" text="Next" AnchorPane.bottomAnchor="20" AnchorPane.rightAnchor="50" prefWidth="80" prefHeight="30">
+            </Button>
+        </AnchorPane>
+    </SplitPane>
+</AnchorPane>

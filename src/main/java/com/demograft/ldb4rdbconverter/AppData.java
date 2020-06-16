@@ -1,6 +1,6 @@
 package com.demograft.ldb4rdbconverter;
 
-// Data class for holding information to be written with GUI.
+// Data class for holding information gathered from the GUI and used to construct the configuration file.
 
 import java.io.File;
 import java.util.ArrayList;
@@ -11,16 +11,10 @@ public class AppData {
     private static File inputFile = null;
     private static File previousConfig = null;
     private static File previousData = null;
-
-    public static File getPreviousData() {
-        return previousData;
-    }
-
-    public static void setPreviousData(File previousData) {
-        AppData.previousData = previousData;
-    }
-
     private static File configFile = null;
+    private static String uncertainty = "false";
+    private static String radiusField = "";
+    private static String cellId = "";
     private static String configName = "";
     private static String longitude = "";
     private static String latitude = "";
@@ -43,6 +37,14 @@ public class AppData {
     private static List<String> hashedRows = new ArrayList<>();
     private static int parquetSize = 0;
     private static int stringLimit = 0;
+
+    public static File getPreviousData() {
+        return previousData;
+    }
+
+    public static void setPreviousData(File previousData) {
+        AppData.previousData = previousData;
+    }
 
     public static int getParquetSize() {
         return parquetSize;
@@ -202,6 +204,30 @@ public class AppData {
 
     public static void setTypeMap(HashMap<String, String> typeMap) {
         AppData.typeMap = typeMap;
+    }
+
+    public static String getUncertainty() {
+        return uncertainty;
+    }
+
+    public static void setUncertainty(String uncertainty) {
+        AppData.uncertainty = uncertainty;
+    }
+
+    public static String getRadiusField() {
+        return radiusField;
+    }
+
+    public static void setRadiusField(String radiusField) {
+        AppData.radiusField = radiusField;
+    }
+
+    public static String getCellId() {
+        return cellId;
+    }
+
+    public static void setCellId(String cellId) {
+        AppData.cellId = cellId;
     }
 
     public static void addRemoved(String header){

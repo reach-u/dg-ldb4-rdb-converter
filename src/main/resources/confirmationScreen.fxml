@@ -154,6 +154,27 @@
 
                     </Label>
                 </HBox>
+                <HBox>
+                    <Label text="Geometry" style="-fx-font: 20 times-new-roman;" wrapText="true" maxWidth="400">
+
+                    </Label>
+                </HBox>
+                <HBox>
+                    <Label prefWidth="70" text="GeoFunction:">
+
+                    </Label>
+                    <Label fx:id="geoFunctionLabel" wrapText="true" maxWidth="400">
+
+                    </Label>
+                </HBox>
+                <HBox>
+                    <Label prefWidth="70" text="Uncertainty:">
+
+                    </Label>
+                    <Label fx:id="uncertaintyLabel" wrapText="true" maxWidth="400">
+
+                    </Label>
+                </HBox>
             </VBox>
             <Button text="Create configuration" fx:id="nextButton" onAction="#nextClicked" AnchorPane.bottomAnchor="50" AnchorPane.rightAnchor="50">
 

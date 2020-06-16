@@ -108,7 +108,7 @@ public class FinalParametersController {
     @FXML
     private void backClicked() throws IOException {
         stage = (Stage) backButton.getScene().getWindow();
-        root = FXMLLoader.load(getClass().getClassLoader().getResource("specialRows.fxml"));
+        root = FXMLLoader.load(getClass().getClassLoader().getResource("geometryParameters.fxml"));
         Scene scene = new Scene(root, 700, 600);
         stage.setScene(scene);
         stage.show();

@@ -55,6 +55,10 @@ public class ConfirmationScreenController {
     Label doubleColumnsLabel;
     @FXML
     Label timeColumnsLabel;
+    @FXML
+    Label geoFunctionLabel;
+    @FXML
+    Label uncertaintyLabel;
 
 
 
@@ -73,6 +77,21 @@ public class ConfirmationScreenController {
         floatColumnsLabel.setText(Helpers.listToString(AppData.getFloatColumns()));
         doubleColumnsLabel.setText(Helpers.listToString(AppData.getDoubleColumns()));
         timeColumnsLabel.setText(Helpers.listToString(AppData.getTimeRows()));
+        if(AppData.getUncertainty().equals("false")){
+            uncertaintyLabel.setText("false");
+        }
+        else{
+            uncertaintyLabel.setText("true");
+        }
+        if(AppData.getRadiusField().equals("") && AppData.getCellId().equals("")){
+            geoFunctionLabel.setText("none");
+        }
+        else if(!AppData.getRadiusField().equals("")){
+            geoFunctionLabel.setText(AppData.getRadiusField());
+        }
+        else{
+            geoFunctionLabel.setText(AppData.getCellId());
+        }
         updateTable();
     }
 
@@ -222,6 +241,13 @@ public class ConfirmationScreenController {
                 }
                 fw.write("\n");
             }
+            if(!AppData.getRadiusField().equals("")){
+                fw.write("radius=" + AppData.getRadiusField() + "\n");
+            }
+            if(!AppData.getCellId().equals("")){
+                fw.write("cell-location-identifier=" + AppData.getCellId() + "\n");
+            }
+            fw.write("is-coordinate-randomized-in-uncertainty=" + AppData.getUncertainty());
         }
         catch(IOException e){
             System.out.println("Unknown error while writing configuration file");
