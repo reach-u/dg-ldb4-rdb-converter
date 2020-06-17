@@ -26,6 +26,19 @@
                         </TextField>
                     </HBox>
                 </VBox>
+                <VBox>
+                    <HBox spacing="20">
+                        <Label text="Default type for columns" prefWidth="120" alignment="BASELINE_RIGHT">
+
+                        </Label>
+                        <TextField fx:id="defaultType">
+
+                        </TextField>
+                        <Label fx:id="typeError" visible="false" textFill="red" text="Supported types: float, double, string">
+
+                        </Label>
+                    </HBox>
+                </VBox>
                 <Button fx:id="removeRowsButton" onAction="#removeRows" text="Remove">
 
                 </Button>

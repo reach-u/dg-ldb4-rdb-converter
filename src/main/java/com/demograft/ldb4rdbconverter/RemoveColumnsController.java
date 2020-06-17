@@ -44,9 +44,13 @@ public class RemoveColumnsController {
     @FXML
     Button removeRowsBack;
     @FXML
+    TextField defaultType;
+    @FXML
     TableView<DataRow> mainTable;
     @FXML
     TextField searchBar;
+    @FXML
+    Label typeError;
     private FilteredList<DataRow> filteredList;
     private ObservableList<DataRow> dataList;
 
@@ -129,6 +133,15 @@ public class RemoveColumnsController {
                 headers.remove(row);
                 AppData.addRemoved(row);
                 removeError.setVisible(false);
+            }
+        }
+        if(!defaultType.getText().equals("")){
+            if(defaultType.getText().equals("double") || defaultType.getText().equals("string") || defaultType.getText().equals("float")){
+                AppData.setDefaultType(defaultType.getText());
+                typeError.setVisible(false);
+            }
+            else{
+                typeError.setVisible(true);
             }
         }
         updateTable();

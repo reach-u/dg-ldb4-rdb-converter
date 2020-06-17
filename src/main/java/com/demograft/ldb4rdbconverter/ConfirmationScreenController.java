@@ -248,6 +248,7 @@ public class ConfirmationScreenController {
                 fw.write("cell-location-identifier=" + AppData.getCellId() + "\n");
             }
             fw.write("is-coordinate-randomized-in-uncertainty=" + AppData.getUncertainty());
+            fw.write("default-type=" + AppData.getDefaultType());
         }
         catch(IOException e){
             System.out.println("Unknown error while writing configuration file");

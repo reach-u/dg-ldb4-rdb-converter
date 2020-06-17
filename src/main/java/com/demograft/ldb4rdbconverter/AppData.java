@@ -12,6 +12,7 @@ public class AppData {
     private static File previousConfig = null;
     private static File previousData = null;
     private static File configFile = null;
+    private static String defaultType = "string";
     private static String uncertainty = "false";
     private static String radiusField = "";
     private static String cellId = "";
@@ -37,6 +38,14 @@ public class AppData {
     private static List<String> hashedRows = new ArrayList<>();
     private static int parquetSize = 0;
     private static int stringLimit = 0;
+
+    public static String getDefaultType() {
+        return defaultType;
+    }
+
+    public static void setDefaultType(String defaultType) {
+        AppData.defaultType = defaultType;
+    }
 
     public static File getPreviousData() {
         return previousData;

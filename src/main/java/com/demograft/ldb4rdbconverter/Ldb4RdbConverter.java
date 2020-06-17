@@ -398,7 +398,10 @@ public class Ldb4RdbConverter {
                 }
                 data.add(row);
             }
-            else {
+            else if(!derivedFields.contains(field.name())){
+                if(hashColumns.contains(field.name()) || retainHashes.contains(field.name().substring(0, field.name().length() - 4))){
+                    row.put("guiType", "ID");
+                }
                 row.put("attributeName", formattedName);
                 row.put("attributeTooltip", formattedName);
                 row.put("group", "Generic");
@@ -413,6 +416,7 @@ public class Ldb4RdbConverter {
                 geoData.put("attributeName", geometryHeader);
                 geoData.put("attributeId", geometryHeader);
                 geoData.put("attributeTooltip", geometryHeader);
+                data.add(geoData);
             }
         }
         if(!trajectory.equals("")){
