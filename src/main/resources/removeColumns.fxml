@@ -18,15 +18,21 @@
             <HBox AnchorPane.topAnchor="60" AnchorPane.leftAnchor="50" spacing="23">
                 <VBox>
                     <HBox spacing="20">
-                        <Label text="Rows to be removed" prefWidth="120" alignment="BASELINE_RIGHT">
+                        <Label text="Rows to be removed:" prefWidth="120" alignment="BASELINE_RIGHT">
 
                         </Label>
                         <TextField fx:id="toBeRemoved">
 
                         </TextField>
+                        <Button fx:id="removeRowsButton" onAction="#removeRows" text="Update">
+
+                        </Button>
+                        <Button fx:id="resetButton" onAction="#resetRows" text="Reset">
+
+                        </Button>
                     </HBox>
-                    <HBox>
-                        <Label text="Default type for columns" prefWidth="120" alignment="BASELINE_RIGHT">
+                    <HBox spacing="20">
+                        <Label text="Default column type:" prefWidth="120" alignment="BASELINE_RIGHT">
 
                         </Label>
                         <TextField fx:id="defaultType">
@@ -37,12 +43,6 @@
                         </Label>
                     </HBox>
                 </VBox>
-                <Button fx:id="removeRowsButton" onAction="#removeRows" text="Remove">
-
-                </Button>
-                <Button fx:id="resetButton" onAction="#resetRows" text="Reset">
-
-                </Button>
             </HBox>
             <Label fx:id="removeError" visible="false" textFill="red"  AnchorPane.leftAnchor="40" AnchorPane.bottomAnchor="20">
 
