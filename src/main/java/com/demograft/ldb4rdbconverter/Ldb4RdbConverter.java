@@ -1219,7 +1219,30 @@ public class Ldb4RdbConverter {
                 statistics.append("     Unique string count: " + uniqueStrings.get(key).size() + "\n\n");
             }
         }
-        statistics.append("Time data.\nDate followed by the number of samples found from that date\n\n\n");
+        statistics.append("The following string headers didn't contain any data:\n\t");
+        for(Map.Entry<String, Set<String>> entry : uniqueStrings.entrySet()){
+            if (entry.getValue().size() == 0){
+                statistics.append(entry.getKey() + ",");
+            }
+        }
+        statistics.append("\n\n The following number headers didn't contain any data:\n\n");
+        for (Map.Entry<String, Integer[]> entry : statsTable.entrySet()) {
+            String key = entry.getKey();
+            Integer[] value = entry.getValue();
+            if (minMaxTable.containsKey(key) && value[0]==0){
+                statistics.append(key + ",");
+            }
+        }
+        statistics.append("\n\n The following number headers didn't contain any valid data:\n\n");
+        for (Map.Entry<String, Integer[]> entry : statsTable.entrySet()) {
+            String key = entry.getKey();
+            Integer[] value = entry.getValue();
+            if (minMaxTable.containsKey(key) && value[0]==0 && value[1]!=0){
+                statistics.append(key + ",");
+            }
+        }
+
+        statistics.append("\n\n Time data.\nDate followed by the number of samples found from that date\n\n\n");
         for (Map.Entry<String, Integer> entry : timeData.entrySet()) {
             statistics.append(entry.getKey() + "   -   " + entry.getValue() + "\n");
         }
@@ -1261,7 +1284,7 @@ public class Ldb4RdbConverter {
             try {
                 for (File file : inputFile.listFiles()) {
                     String fileName = file.getName();
-                    if (fileName.endsWith(".csv")) {
+                    if (fileName.endsWith(".csv") || fileName.endsWith(".gz") || fileName.endsWith(".zip")) {
                         csvFiles.add(file);
                     } else if (fileName.endsWith(PARQUET_FILE_EXTENSION)) {
                         parquetFiles.add(file);
