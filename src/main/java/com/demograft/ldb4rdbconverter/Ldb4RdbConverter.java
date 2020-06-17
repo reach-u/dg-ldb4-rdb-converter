@@ -30,6 +30,7 @@ import org.kohsuke.args4j.Option;
 
 import java.io.*;
 import java.text.DecimalFormat;
+import java.text.MessageFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -1278,7 +1279,7 @@ public class Ldb4RdbConverter {
             } else if (fileName.endsWith(PARQUET_FILE_EXTENSION)) {
                 parquetFiles.add(inputFile);
             } else {
-                throw new RuntimeException(String.format("File {} has an unknown extension", fileName));
+                throw new RuntimeException(MessageFormat.format("File \"{0}\" has an unknown extension", fileName));
             }
         } else {
             try {
@@ -1315,7 +1316,7 @@ public class Ldb4RdbConverter {
             exampleFile = parquetFiles.get(0);
             inputFiles = parquetFiles;
         } else {
-            throw new RuntimeException(String.format("Input file {} doesn't have a valid input type", inputFile));
+            throw new RuntimeException(MessageFormat.format("Input file \"{0}\" does not have a valid input type", inputFile));
         }
         parser.beginParsing(exampleFile);
         if(!predefinedHeaders){

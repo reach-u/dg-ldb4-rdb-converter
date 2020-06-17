@@ -12,6 +12,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -45,7 +46,7 @@ public class GeometryTransformer {
         }
 
         transformGeometryType(record, radius);
-        trasformGeometryLatitudeLongitude(record);
+        trasformGeometryLatitudeLongitude(record, radius);
 
         // Methods below assume that geometryType has been set
         GeometryType type = GeometryType.valueOf((String) record.get("geometryType"));
@@ -178,13 +179,23 @@ public class GeometryTransformer {
         }
     }
 
-    private void trasformGeometryLatitudeLongitude(GenericData.Record record) {
+    private void trasformGeometryLatitudeLongitude(GenericData.Record record, Integer radius) {
+        Double latitude = (Double) record.get("lat");
+        Double longitude = (Double) record.get("lon");
+        record.put("geometryLatitude", latitude);
+        record.put("geometryLongitude", longitude);
         if (isCoordinateRandomizedInUncertainty) {
-            // TODO: Randomize latitude and longitude
-        } else {
-            record.put("geometryLatitude", record.get("lat"));
-            record.put("geometryLongitude", record.get("lon"));
+            Coordinate randomizedPosition = randomizeCoordinateInUncertainty(radius, latitude, longitude);
+            record.put("lat", randomizedPosition.getLatitude());
+            record.put("lon", randomizedPosition.getLongitude());
         }
+    }
+
+    private Coordinate randomizeCoordinateInUncertainty(double radius, Double latitude, Double longitude) {
+        Coordinate originalPosition = new Coordinate(latitude, longitude);
+        double distance = ThreadLocalRandom.current().nextDouble(0d, radius + 1);
+        double azimuth = ThreadLocalRandom.current().nextDouble(-180d, 180d);
+        return originalPosition.directTo(azimuth, distance);
     }
 
     private void transformGeometryType(GenericData.Record record, Integer radius) {
