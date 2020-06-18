@@ -47,6 +47,7 @@ public class MainAttributesController {
     private FilteredList<DataRow> filteredList;
     private ObservableList<DataRow> dataList;
 
+
     public void initialize() {
         mainTable.getSelectionModel().setCellSelectionEnabled(true);
         mainTable.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);

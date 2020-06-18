@@ -5,12 +5,18 @@
 
 <AnchorPane xmlns="http://javafx.com/javafx"
             xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.demograft.ldb4rdbconverter.GUIController"
+            fx:controller="com.demograft.ldb4rdbconverter.NewFileController"
             prefHeight="400.0" prefWidth="400.0">
     <Button fx:id="selectFileButton" onAction="#selectNewFileClicked" AnchorPane.topAnchor="100" AnchorPane.leftAnchor="130" text="Choose file">
     </Button>
     <Label fx:id="chosenFileName" text="Select your data file or folder" AnchorPane.leftAnchor="220" AnchorPane.topAnchor="100">
     </Label>
+    <CheckBox fx:id="headerCheck" text="Data has no headers?" AnchorPane.topAnchor="160" AnchorPane.rightAnchor="60">
+
+    </CheckBox>
+    <TextArea disable="true" fx:id="predefinedHeaders" text="Define headers here:" AnchorPane.topAnchor="200" AnchorPane.rightAnchor="60" prefWidth="200" prefHeight="80">
+
+    </TextArea>
     <Button fx:id="newFileNextButton" onAction="#newFileNextClicked" AnchorPane.bottomAnchor="50" AnchorPane.rightAnchor="50" text="Next">
     </Button>
     <Button fx:id="selectNewBack" onAction="#selectNewBackClicked" AnchorPane.bottomAnchor="50" AnchorPane.leftAnchor="50" text="Back">
