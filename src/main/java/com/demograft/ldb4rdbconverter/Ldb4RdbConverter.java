@@ -64,6 +64,8 @@ public class Ldb4RdbConverter {
 
     private StringBuilder statistics = new StringBuilder();
 
+    private StringBuilder csvStatistics = new StringBuilder();
+
     private final String[] propertyNames = new String[]{"input-file", "output-file", "stats-file", "latitude", "longitude",
             "time", "start-time", "end-time", "columns-to-map-long", "headers", "long-null-values", "double-null-values",
             "float-null-values", "long-columns", "float-columns", "double-columns", "string-columns", "time-columns",
@@ -1198,7 +1200,10 @@ public class Ldb4RdbConverter {
         return getSchemaType(subschema, record.getString(targetName));
     }
 
-    private void writeStatsFile() {
+    //  Write the statistics file in a slightly different, a bit more readable format.
+
+
+    /*private void writeStatsFile() {
         statistics.append("Parquet file generation successful. \n \n \nGeneral statistics: \nFound a total of " + totalRecords + " records. ");
         statistics.append(writtenRecords + " records from " + files + " files parsed into the parquet file. " + (totalRecords - writtenRecords) + " records contained malformed lat, lon or time fields. " + timeGated + " records discarded due to time restrictions.\n");
         statistics.append("Time restrictions set:    \nStart time:  " + startTime + "    \nEnd time:  " + endTime + ". \n\n");
@@ -1255,6 +1260,69 @@ public class Ldb4RdbConverter {
             fw.write(statistics.toString());
         } catch (IOException e) {
             log.info("Error writing the statistics file. Error message: " + e.getMessage());
+        }
+    }
+    */
+    private void writeCsvStats(){
+        csvStatistics.append("Start time:" + startTime + "    \nEnd time:  " + endTime + ". \n\n");
+        csvStatistics.append("field,type,min,max,zero,non-null,unique,null,invalid,null definition \n");
+        DecimalFormat df = new DecimalFormat();
+        df.applyPattern("###.###");
+        for(String column: statsTable.keySet()){
+            csvStatistics.append(column+ ",");
+            csvStatistics.append(typeToString(typeTable.get(column)) + ",");
+            if(minMaxTable.keySet().contains(column)){
+                csvStatistics.append(minMaxTable.get(column)[0] + "," + minMaxTable.get(column)[1] + ",");
+            }
+            else{
+                csvStatistics.append(" , ,");
+            }
+            csvStatistics.append(statsTable.get(column)[3] + ",");
+            csvStatistics.append(statsTable.get(column)[0] + ",");
+            if(uniqueStrings.keySet().contains(column)){
+                csvStatistics.append(uniqueStrings.get(column).size() + ",");
+            }
+            else{
+                csvStatistics.append(" ,");
+            }
+            csvStatistics.append(statsTable.get(column)[2] + ",");
+            csvStatistics.append(statsTable.get(column)[1] + ",");
+            if(typeToString(typeTable.get(column)).equals("float")){
+                for(float nr: floatNullValues){
+                    csvStatistics.append(nr + ";");
+                }
+                if(rowNulls.keySet().contains(column)){
+                    List<String> nulls = rowNulls.get(column);
+                    for(String nullValue: nulls)
+                    csvStatistics.append(nullValue + ";");
+                }
+            } else if (typeToString(typeTable.get(column)).equals("double")){
+                for(double nr: doubleNullValues){
+                    csvStatistics.append(nr + ";");
+                }
+                if(rowNulls.keySet().contains(column)){
+                    List<String> nulls = rowNulls.get(column);
+                    for(String nullValue: nulls)
+                        csvStatistics.append(nullValue + ";");
+                }
+            } else if (typeToString(typeTable.get(column)).equals("string")){
+                csvStatistics.append("[");
+                for(String str: stringNullValues) {
+                    csvStatistics.append(str + ";");
+                }
+                if(rowNulls.keySet().contains(column)){
+                    List<String> nulls = rowNulls.get(column);
+                    for(String nullValue: nulls)
+                        csvStatistics.append(nullValue + ";");
+                }
+                csvStatistics.append("]");
+            }
+            csvStatistics.append("\n");
+        }
+        try (FileWriter fw = new FileWriter(statsFile + "_csv")) {
+            fw.write(csvStatistics.toString());
+        } catch (IOException e) {
+            log.info("Error writing the csv statistics file. Error message: " + e.getMessage());
         }
     }
 
@@ -1488,6 +1556,7 @@ public class Ldb4RdbConverter {
         }
 
 
-        writeStatsFile();
+        //writeStatsFile();
+        writeCsvStats();
     }
 }
