@@ -79,6 +79,10 @@ public class Ldb4RdbConverter {
 
     private final Set<String> propertySet = new HashSet<>(Arrays.asList(propertyNames));
 
+    private LocalDate beginDate = LocalDate.MAX;
+
+    private LocalDate endDate = LocalDate.MIN;
+
     private String[] headerArray;
 
     private String trajectory = "";
@@ -402,7 +406,7 @@ public class Ldb4RdbConverter {
                 data.add(row);
             }
             else if(!derivedFields.contains(field.name())){
-                if(hashColumns.contains(field.name()) || retainHashes.contains(field.name().substring(0, field.name().length() - 4))){
+                if(hashColumns.contains(field.name()) || retainHashes.contains(field.name() + "_IDs")){
                     row.put("guiType", "ID");
                 }
                 row.put("attributeName", formattedName);
@@ -792,6 +796,12 @@ public class Ldb4RdbConverter {
                 timeData.put(localdate.toString(), count);
             } else {
                 timeData.put(localdate.toString(), 1);
+            }
+            if (localdate.toEpochDay() < beginDate.toEpochDay()){
+                beginDate = localdate;
+            }
+            if (localdate.toEpochDay() > endDate.toEpochDay()){
+                endDate = localdate;
             }
             return fieldConversionResult.getGenericRecordBuilder().build();
         } else {
@@ -1263,8 +1273,10 @@ public class Ldb4RdbConverter {
         }
     }
     */
+
     private void writeCsvStats(){
-        csvStatistics.append("Start time:" + startTime + "    \nEnd time:  " + endTime + ". \n\n");
+        csvStatistics.append("Start time:" + beginDate.toString() + "\nEnd time:  " + endDate.toString() + ". \n\n");
+        csvStatistics.append("Total records:" + totalRecords + ", Faulty records:" + (totalRecords - writtenRecords));
         csvStatistics.append("field,type,min,max,zero,non-null,unique,null,invalid,null definition \n");
         DecimalFormat df = new DecimalFormat();
         df.applyPattern("###.###");
