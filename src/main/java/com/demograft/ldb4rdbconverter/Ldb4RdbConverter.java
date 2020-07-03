@@ -1380,6 +1380,12 @@ public class Ldb4RdbConverter {
             }
             csvStatistics.append("\n");
         }
+
+        csvStatistics.append("\n\n Time data.\nDate followed by the number of samples found from that date\n\n\n");
+        for (Map.Entry<String, Integer> entry : timeData.entrySet()) {
+            csvStatistics.append(entry.getKey() + "   -   " + entry.getValue() + "\n");
+        }
+
         try (FileWriter fw = new FileWriter(statsFile + "_csv")) {
             fw.write(csvStatistics.toString());
         } catch (IOException e) {
