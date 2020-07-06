@@ -915,7 +915,7 @@ public class Ldb4RdbConverter {
                         if(operator.equals('+')){
                             foundValue += Float.parseFloat(number);
                         }
-                        if(operator.equals('-')){
+                        if(operator.equals('!')){
                             foundValue -= Float.parseFloat(number);
                         }
                         if(operator.equals('*')){
@@ -1328,7 +1328,7 @@ public class Ldb4RdbConverter {
         csvStatistics.append("Total records:" + totalRecords + ", Faulty records:" + (totalRecords - writtenRecords));
         csvStatistics.append("field,type,min,max,zero,non-null,unique,null,invalid,null definition \n");
         DecimalFormat df = new DecimalFormat();
-        df.applyPattern("###.###");
+        df.applyPattern("###.##");
         for(String column: statsTable.keySet()){
             csvStatistics.append(column+ ",");
             csvStatistics.append(typeToString(typeTable.get(column)) + ",");
