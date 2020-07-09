@@ -32,6 +32,7 @@ public class CsvInputParser implements InputParser {
         settings.getFormat().setLineSeparator("\n");
         settings.setMaxColumns(1000);
         settings.setMaxCharsPerColumn(-1);
+        settings.setQuoteDetectionEnabled(true);
         settings.setHeaders(headers);
         parser = new CsvParser(settings);
         header = headers;

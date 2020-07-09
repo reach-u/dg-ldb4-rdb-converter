@@ -72,7 +72,9 @@ public class GeometryTransformer {
     }
 
     Map<String, Integer> getOrCalculateRadius(List<Cell> cellList) {
+        System.out.println("Cell list size before filtering: " + cellList.size());
         List<Cell> filteredCells = filterCells(cellList);
+        System.out.println("Cell list size after filtering: " + filteredCells.size());
         Map<String, Integer> distances = new HashMap<>();
         for (Cell cell : filteredCells) {
             if (cell.getRadius() != null) {

@@ -11,6 +11,7 @@ import com.demograft.ldb4rdbconverter.utils.TimeUtils;
 import com.univocity.parsers.csv.CsvParser;
 import com.univocity.parsers.csv.CsvParserSettings;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.avro.JsonProperties;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.hadoop.conf.Configuration;
@@ -53,6 +54,8 @@ public class Ldb4RdbConverter {
 
     private int files = 0;
 
+
+
     private String[] columnsToRemove = new String[0];
 
     private List<String> columnsToRemoveList = new ArrayList<>();
@@ -69,7 +72,7 @@ public class Ldb4RdbConverter {
             "time", "start-time", "end-time", "columns-to-map-long", "headers", "long-null-values", "double-null-values",
             "float-null-values", "long-columns", "float-columns", "double-columns", "string-columns", "time-columns",
             "parquet-size", "excluded", "unique-strings", "timezone","headers","retain-hashes","trajectoryID","tokenFiles",
-            "is-coordinate-randomized-in-uncertainty", "radius", "cell-location-identifier", "cell-location-equality-tolerance","default-type"};
+            "is-coordinate-randomized-in-uncertainty", "radius", "cell-location-identifier", "cell-location-equality-tolerance","default-type","non-negative"};
 
     Set<String> derivedFields = Stream.of("geometryType", "geometryLatitude", "geometryLongitude", "orientationMajorAxis",
         "innerSemiMajorRadius", "innerSemiMinorRadius", "outerSemiMajorRadius", "outerSemiMinorRadius",
@@ -118,7 +121,7 @@ public class Ldb4RdbConverter {
 
     private Map<String, String> tokenHeaders = new HashMap<>();           //    They are formed as follows:   tokenHeader -> originalHeader
 
-    private Map<String, Map<String, String>> tokenMaps = new HashMap<>();   //    They are formed as follows:  tokenHeader -> {originalRow -> tokenRow}
+    private Map<String, Map<String, StringBuffer>> tokenMaps = new TreeMap<>();   //    They are formed as follows:  tokenHeader -> {originalRow -> tokenRow}
 
     private Map<String, Map<String, Long>> longMaps = new HashMap<>();
 
@@ -127,6 +130,8 @@ public class Ldb4RdbConverter {
     private List<String> timeColumns = new ArrayList<>();
 
     private List<String> retainHashes = new LinkedList<>();
+
+    private List<String> nonNegativeRows = new ArrayList<>();
 
     private List<HashMap<String, Long>> hashTables = new ArrayList<>();
 
@@ -528,7 +533,6 @@ public class Ldb4RdbConverter {
             CsvParserSettings settings = new CsvParserSettings();
             settings.detectFormatAutomatically();
             CsvParser parser = new CsvParser(settings);
-
             parser.beginParsing(tokenFile);
             String[] headers = parser.parseNext();
             tokenHeaders.put(headers[0], headers[1]);
@@ -537,13 +541,14 @@ public class Ldb4RdbConverter {
             tokenTypes.put(headers[2], headers[4]);
             Map<String, Long> tokenMap = new HashMap<>();
             longMaps.put(headers[0], tokenMap);
-            Map<String, String> newMap = new HashMap<>();
+            Map<String, StringBuffer> newMap = new HashMap<>();
             tokenMaps.put(headers[2], newMap);
             String[] record;
             while ((record = parser.parseNext()) != null) {
                 String source = record[1];
                 String token = record[0];
-                String tv = record[2];
+                StringBuffer tv = new StringBuffer(record[2]);
+                tv.trimToSize();
                 longMaps.get(headers[0]).put(source, Long.parseLong(token));
                 tokenMaps.get(headers[2]).put(source, tv);
             }
@@ -720,6 +725,11 @@ public class Ldb4RdbConverter {
                 isCoordinateRandomizedInUncertainty = Boolean.parseBoolean(uncertaintyProperty.trim());
             }
         }
+        if (defaultProp.contains("non-negative")){
+            String nonNegatives = defaultProp.getProperty("non-negative").trim();
+            String[] nonNegativesArray = nonNegatives.split(",");
+            this.nonNegativeRows = new LinkedList<>(Arrays.asList(nonNegativesArray));
+        }
         for (String key : defaultProp.stringPropertyNames()) {
             if (!propertySet.contains(key)) {
                 String propInfo = defaultProp.getProperty(key);
@@ -727,7 +737,7 @@ public class Ldb4RdbConverter {
                 List<String> nulls = new ArrayList<>(Arrays.asList(values));
                 for (String rowValue: nulls){
                     Character first = rowValue.charAt(0);
-                    if(first.equals('+') || first.equals('-') || first.equals('*') || first.equals(':')){
+                    if(first.equals('+') || first.equals('!') || first.equals('*') || first.equals(':')){
                         if(!arithmetics.containsKey(key)){
                             arithmetics.put(key, new ArrayList<>());
                         }
@@ -847,7 +857,7 @@ public class Ldb4RdbConverter {
                 String fieldName = field.name();
                 if(tokenHeaders.keySet().contains(fieldName)){
                     String preToken = record.getString(tokenHeaders.get(fieldName));
-                    String nr = tokenMaps.get(fieldName).get(preToken.toLowerCase());
+                    String nr = tokenMaps.get(fieldName).get(preToken.toLowerCase()).toString();
                     if (nr == null){
                         fieldConversionResult.updateGenericRecordBuilder(field, null);
                         throw new NullPointerException();
@@ -884,6 +894,9 @@ public class Ldb4RdbConverter {
                     }
                     Float floatValue = Float.valueOf(value);
                     checkFieldValidity(field, checkForNullFloat(floatValue, field.name()) == null, floatNullValues.contains(floatValue));
+                    if(floatValue < 0 && nonNegativeRows.contains(field.name())){
+                        throw new NumberFormatException();
+                    }
                     fieldConversionResult.updateGenericRecordBuilder(field, floatValue);
                     Integer[] stat = statsTable.get(field.name());
                     stat[COL_NON_NULL_VALUES] += 1;
@@ -896,7 +909,7 @@ public class Ldb4RdbConverter {
                 String fieldName = field.name();
                 if (tokenHeaders.keySet().contains(field.name())) {
                     String preToken = record.getString(tokenHeaders.get(fieldName));
-                    String nr = tokenMaps.get(fieldName).get(preToken.toLowerCase());
+                    String nr = tokenMaps.get(fieldName).get(preToken.toLowerCase()).toString();
                     if (nr == null) {
                         fieldConversionResult.updateGenericRecordBuilder(field, null);
                         throw new NullPointerException();
@@ -926,6 +939,9 @@ public class Ldb4RdbConverter {
                         }
 
                     }
+                }
+                if(foundValue < 0 && nonNegativeRows.contains(field.name())){
+                    throw new NumberFormatException();
                 }
                 fieldConversionResult.updateGenericRecordBuilder(field, foundValue);
                 Integer[] stat = statsTable.get(fieldName);
@@ -1025,7 +1041,7 @@ public class Ldb4RdbConverter {
             try {
                 String fieldName = field.name();
                 String preToken = record.getString(tokenHeaders.get(fieldName));
-                String nr = tokenMaps.get(fieldName).get(preToken.toLowerCase());
+                String nr = tokenMaps.get(fieldName).get(preToken.toLowerCase()).toString();
                 if (nr == null){
                     fieldConversionResult.updateGenericRecordBuilder(field, nr);
                     throw new NullPointerException();
@@ -1051,6 +1067,9 @@ public class Ldb4RdbConverter {
             try {
                 Double number = record.getDouble(field.name());
                 checkFieldValidity(field, checkForNullDouble(number, field.name()) == null, doubleNullValues.contains(number));
+                if(number < 0D && nonNegativeRows.contains(field.name())){
+                    throw new NumberFormatException();
+                }
                 fieldConversionResult.updateGenericRecordBuilder(field, number);
                 Integer[] stat = statsTable.get(field.name());
                 Float[] minmax = minMaxTable.get(field.name());
@@ -1147,7 +1166,7 @@ public class Ldb4RdbConverter {
                 String preToken = record.getString(tokenHeaders.get(fieldName));
                 Long number = null;
                 if(tokenMaps.containsKey(fieldName)){
-                    number = Long.parseLong(tokenMaps.get(fieldName).get(preToken.toLowerCase()));
+                    number = Long.parseLong(tokenMaps.get(fieldName).get(preToken.toLowerCase()).toString());
                 }
                 if(longMaps.containsKey(fieldName)){
                     number = longMaps.get(fieldName).get(preToken.toLowerCase());
@@ -1188,12 +1207,13 @@ public class Ldb4RdbConverter {
                     statsTable.put(field.name(), stat);
                     fieldConversionResult.updateGenericRecordBuilder(field, number);
                 } catch (NumberFormatException e1) {
+                    fieldConversionResult.updateGenericRecordBuilder(field, null);
                     Integer[] stat2 = statsTable.get(field.name());
                     stat2[COL_NON_NULL_VALUES] += 1;
                     stat2[COL_MALFORMED_VALUES] += 1;
-                    statsTable.put("lon", stat2);
                 }
             } catch (NullPointerException e2) {
+                fieldConversionResult.updateGenericRecordBuilder(field, null);
                 Integer[] stat = statsTable.get(field.name());
                 stat[COL_NULL_VALUES] += 1;
                 statsTable.put(field.name(), stat);
@@ -1490,13 +1510,9 @@ public class Ldb4RdbConverter {
             examples.add("0");
         }
         createTokenMaps(tokenFiles);
-        for(String row: tokenMaps.keySet()){
+        for(String row: tokenHeaders.keySet()){
             headers.add(row);
-            examples.add("0");   // The type of this does not count, as token rows are given types based on the entries in tokenTypes
-        }
-        for(String row: longMaps.keySet()){
-            headers.add(row);
-            examples.add("0");
+            examples.add("0"); // The type of this does not count, as token rows are given types based on the entries in tokenTypes
         }
         JSONObject mainjson = createJSONFromCSVRecords(headers, examples);
         hashMapCounters = new long[hashColumns.size() + retainHashes.size()];
@@ -1544,6 +1560,7 @@ public class Ldb4RdbConverter {
         List<Path> writtenFiles = new ArrayList<>();
         Path newFilePath = new Path(newFileName(filenumber));
         List<Cell> cells = new ArrayList<>();
+        System.out.println();
         try {
             parquetWriter = AvroParquetWriter
                     .<GenericData.Record>builder(newFilePath)
@@ -1558,9 +1575,17 @@ public class Ldb4RdbConverter {
                 InputRecord record;
                 try {
                     while ((record = parser.parseNextRecord()) != null) {
-                        GenericData.Record toWrite = convertToParquetRecord(avroSchema, record);
+                        GenericData.Record toWrite;
+                        String[] values = record.getValues();
+                        if(values.length != 26){
+                            toWrite = convertToParquetRecord(avroSchema, record);
+                        }
+                        else{
+                            toWrite = convertToParquetRecord(avroSchema, record);
+                        }
                         if (toWrite != null) {
-                            cells.add(new Cell(toWrite, cellLocationIdentifier, cellLocationEqualityTolerance));
+                            Cell newOne = new Cell(toWrite, cellLocationIdentifier, cellLocationEqualityTolerance);
+                            cells.add(newOne);
                             if (parquetSize > 0 && written >= parquetSize) {
                                 written = 0;
                                 parquetWriter.close();
@@ -1585,6 +1610,9 @@ public class Ldb4RdbConverter {
                     files += 1;
                     parser.stopParsing();
                 }
+                cells = cells.stream()
+                        .distinct()
+                        .collect(Collectors.toList());
             }
         } catch (java.io.IOException e) {
             log.info(String.format("Error writing parquet file %s", e.getMessage()));
