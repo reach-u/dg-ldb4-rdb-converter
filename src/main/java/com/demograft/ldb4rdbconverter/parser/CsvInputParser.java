@@ -30,6 +30,7 @@ public class CsvInputParser implements InputParser {
         CsvParserSettings settings = new CsvParserSettings();
         settings.setFormat(new CsvFormat());
         settings.getFormat().setLineSeparator("\n");
+        settings.getFormat().setQuoteEscape('\\');
         settings.setMaxColumns(1000);
         settings.setMaxCharsPerColumn(-1);
         settings.setQuoteDetectionEnabled(true);

@@ -1345,15 +1345,21 @@ public class Ldb4RdbConverter {
 
     private void writeCsvStats(){
         csvStatistics.append("Start time:" + beginDate.toString() + "\nEnd time:  " + endDate.toString() + ". \n\n");
-        csvStatistics.append("Total records:" + totalRecords + ", Faulty records:" + (totalRecords - writtenRecords));
-        csvStatistics.append("field,type,min,max,zero,non-null,unique,null,invalid,null definition \n");
+        csvStatistics.append("Total records:" + totalRecords + ", Faulty records:" + (totalRecords - writtenRecords) + "\n\n");
+        csvStatistics.append("Arithmetic operations: ! - subtraction, + - addition, : - divison, * - multiplication \n\n");
+        csvStatistics.append("field,type,min,max,zero,non-null,unique,null,invalid,null definition,arithmetics \n");
         DecimalFormat df = new DecimalFormat();
         df.applyPattern("###.##");
         for(String column: statsTable.keySet()){
             csvStatistics.append(column+ ",");
             csvStatistics.append(typeToString(typeTable.get(column)) + ",");
             if(minMaxTable.keySet().contains(column)){
-                csvStatistics.append(df.format(minMaxTable.get(column)[0]) + "," + df.format(minMaxTable.get(column)[1]) + ",");
+                if (minMaxTable.get(column)[0] == Float.MAX_VALUE & minMaxTable.get(column)[1] == Float.MIN_VALUE){
+                    csvStatistics.append("N/A,N/A,");
+                }
+                else{
+                    csvStatistics.append(df.format(minMaxTable.get(column)[0]) + "," + df.format(minMaxTable.get(column)[1]) + ",");
+                }
             }
             else{
                 csvStatistics.append(" , ,");
@@ -1398,6 +1404,12 @@ public class Ldb4RdbConverter {
                 }
                 csvStatistics.append("]");
             }
+            csvStatistics.append(",");
+            if(arithmetics.containsKey(column)){
+                for(String arith: arithmetics.get(column)){
+                    csvStatistics.append(arith);
+                }
+            }
             csvStatistics.append("\n");
         }
 
@@ -1406,7 +1418,7 @@ public class Ldb4RdbConverter {
             csvStatistics.append(entry.getKey() + "   -   " + entry.getValue() + "\n");
         }
 
-        try (FileWriter fw = new FileWriter(statsFile + "_csv")) {
+        try (FileWriter fw = new FileWriter(statsFile + ".csv")) {
             fw.write(csvStatistics.toString());
         } catch (IOException e) {
             log.info("Error writing the csv statistics file. Error message: " + e.getMessage());
@@ -1576,13 +1588,7 @@ public class Ldb4RdbConverter {
                 try {
                     while ((record = parser.parseNextRecord()) != null) {
                         GenericData.Record toWrite;
-                        String[] values = record.getValues();
-                        if(values.length != 26){
-                            toWrite = convertToParquetRecord(avroSchema, record);
-                        }
-                        else{
-                            toWrite = convertToParquetRecord(avroSchema, record);
-                        }
+                        toWrite = convertToParquetRecord(avroSchema, record);
                         if (toWrite != null) {
                             Cell newOne = new Cell(toWrite, cellLocationIdentifier, cellLocationEqualityTolerance);
                             cells.add(newOne);
