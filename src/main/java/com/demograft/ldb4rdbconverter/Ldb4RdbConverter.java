@@ -1413,7 +1413,8 @@ public class Ldb4RdbConverter {
             csvStatistics.append("\n");
         }
 
-        csvStatistics.append("\n\nTime data.\nDate followed by the number of samples found from that date\n\n\n");
+        csvStatistics.append("\n\nTime data.\nDate followed by the number of samples found from that date\n");
+        csvStatistics.append("Used timezone: " + timeZone + "\n\n");
         for (Map.Entry<String, Integer> entry : timeData.entrySet()) {
             csvStatistics.append(entry.getKey() + "   -   " + entry.getValue() + "\n");
         }
