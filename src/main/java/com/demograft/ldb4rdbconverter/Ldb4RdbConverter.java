@@ -11,7 +11,6 @@ import com.demograft.ldb4rdbconverter.utils.TimeUtils;
 import com.univocity.parsers.csv.CsvParser;
 import com.univocity.parsers.csv.CsvParserSettings;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.avro.JsonProperties;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericData;
 import org.apache.hadoop.conf.Configuration;
@@ -27,6 +26,9 @@ import org.json.simple.JSONObject;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.mapdb.HTreeMap;
 
 import java.io.*;
 import java.text.DecimalFormat;
@@ -54,8 +56,6 @@ public class Ldb4RdbConverter {
 
     private int files = 0;
 
-
-
     private String[] columnsToRemove = new String[0];
 
     private List<String> columnsToRemoveList = new ArrayList<>();
@@ -66,13 +66,18 @@ public class Ldb4RdbConverter {
 
     private StringBuilder statistics = new StringBuilder();
 
+    private List<String> listRows = new ArrayList<>();
+
     private StringBuilder csvStatistics = new StringBuilder();
+
+    private Map<String,String> databaseHeaderTypes = new HashMap<>();
 
     private final String[] propertyNames = new String[]{"input-file", "output-file", "stats-file", "latitude", "longitude",
             "time", "start-time", "end-time", "columns-to-map-long", "headers", "long-null-values", "double-null-values",
             "float-null-values", "long-columns", "float-columns", "double-columns", "string-columns", "time-columns",
             "parquet-size", "excluded", "unique-strings", "timezone","headers","retain-hashes","trajectoryID","tokenFiles",
-            "is-coordinate-randomized-in-uncertainty", "radius", "cell-location-identifier", "cell-location-equality-tolerance","default-type","non-negative"};
+            "is-coordinate-randomized-in-uncertainty", "radius", "cell-location-identifier", "cell-location-equality-tolerance",
+            "default-type","non-negative","list-rows","database-files"};
 
     Set<String> derivedFields = Stream.of("geometryType", "geometryLatitude", "geometryLongitude", "orientationMajorAxis",
         "innerSemiMajorRadius", "innerSemiMinorRadius", "outerSemiMajorRadius", "outerSemiMinorRadius",
@@ -119,6 +124,14 @@ public class Ldb4RdbConverter {
 
     private List<String> tokenFiles = new LinkedList<>();
 
+    private List<String> databaseFiles = new LinkedList<>();
+
+    private List<String> databaseHeaders = new LinkedList<>();
+
+    private Map<String, DB> databases = new HashMap<>();
+
+    private Map<String, String> databaseSources =  new HashMap<>();
+
     private Map<String, String> tokenHeaders = new HashMap<>();           //    They are formed as follows:   tokenHeader -> originalHeader
 
     private Map<String, Map<String, StringBuffer>> tokenMaps = new TreeMap<>();   //    They are formed as follows:  tokenHeader -> {originalRow -> tokenRow}
@@ -135,6 +148,8 @@ public class Ldb4RdbConverter {
 
     private List<HashMap<String, Long>> hashTables = new ArrayList<>();
 
+    private Map<String, Integer> databaseHashes = new HashMap<>();
+
     /* Statistics look as follows: 4 numbers for each row, they indicate:
         1. Number of non-null values
         2. Number of malformed values
@@ -148,11 +163,11 @@ public class Ldb4RdbConverter {
 
        */
 
-    private HashMap<String, Integer[]> statsTable = new HashMap<>();
+    public static HashMap<String, Integer[]> statsTable = new HashMap<>();
 
-    private HashMap<String, Float[]> minMaxTable = new HashMap<>();
+    public static HashMap<String, Float[]> minMaxTable = new HashMap<>();
 
-    private HashMap<String, Set<String>> uniqueStrings = new HashMap<>();
+    public static HashMap<String, Set<String>> uniqueStrings = new HashMap<>();
 
     private int parquetSize = 0;
 
@@ -350,6 +365,12 @@ public class Ldb4RdbConverter {
                 JSONArray typelist = new JSONArray();
                 typelist.add("null");
                 typelist.add(tokenTypes.get(headername));
+                jo.put("type", typelist);
+            } else if (databaseHeaders.contains(headername)){
+                jo.put("name", headername);
+                JSONArray typelist = new JSONArray();
+                typelist.add("null");
+                typelist.add(databaseHeaderTypes.get(headername));
                 jo.put("type", typelist);
             }
 
@@ -618,6 +639,12 @@ public class Ldb4RdbConverter {
                 hashColumns.add(column.trim());
             }
         }
+        if(defaultProp.containsKey("list-rows")) {
+            String propInfo = defaultProp.getProperty("list-rows");
+            for (String column : propInfo.split(",")) {
+                listRows.add(column.trim());
+            }
+        }
         if (defaultProp.containsKey("time-columns")) {
             String propInfo = defaultProp.getProperty("time-columns");
             for (String column : propInfo.split(",")) {
@@ -656,6 +683,12 @@ public class Ldb4RdbConverter {
             String propInfo = defaultProp.getProperty("long-columns");
             for (String column : propInfo.split(",")) {
                 longColumns.add(column.trim());
+            }
+        }
+        if(defaultProp.containsKey("database-files")){
+            String propInfo = defaultProp.getProperty("database-files");
+            for (String file : propInfo.split(",")){
+                databaseFiles.add(file.trim());
             }
         }
         if (defaultProp.containsKey("float-columns")) {
@@ -901,6 +934,16 @@ public class Ldb4RdbConverter {
                     Integer[] stat = statsTable.get(field.name());
                     stat[COL_NON_NULL_VALUES] += 1;
                     statsTable.put(field.name(), stat);
+                    if(minMaxTable.get("radius")[0] > floatValue){
+                        Float[] stat2 = minMaxTable.get("radius");
+                        stat2[0] = floatValue;
+                        minMaxTable.put("radius", stat2);
+                    }
+                    if(minMaxTable.get("radius")[1] < floatValue){
+                        Float[] stat2 = minMaxTable.get("radius");
+                        stat2[1] = floatValue;
+                        minMaxTable.put("radius", stat2);
+                    }
                 } catch (NullPointerException ex) {
                     handleNullOrEmpty(fieldConversionResult, field);
                 }
@@ -1189,12 +1232,44 @@ public class Ldb4RdbConverter {
         else {
             // Could be null or long
             try {
-                Long date = TimeUtils.timeToMillisecondsConverter(record.getString(field.name()), timeFormatter, inputEpochInMilliseconds, timeZone);
-                checkFieldValidity(field, checkForNullLong(date, field.name()) == null, longNullValues.contains(date));
-                fieldConversionResult.updateGenericRecordBuilder(field, date);
-                Integer[] stat = statsTable.get(field.name());
-                stat[COL_NON_NULL_VALUES] += 1;
-                statsTable.put(field.name(), stat);
+                if(databaseHeaders.contains(field.name())){
+                    String sourceHeader = databaseSources.get(field.name());
+                    String source = record.getString(sourceHeader).toLowerCase();
+                    DB db = databases.get(field.name());
+                    HTreeMap map = db.hashMap(field.name()).createOrOpen();
+                    if(!map.containsKey(source)) {
+                        int hash = databaseHashes.get(field.name());
+                        map.put(source, hash);
+                        fieldConversionResult.updateGenericRecordBuilder(field, (long) hash);
+                        int newhash = hash + 1;
+                        databaseHashes.put(source, newhash);
+                        Integer[] stat = statsTable.get(field.name());
+                        stat[COL_NON_NULL_VALUES] += 1;
+                        statsTable.put(field.name(), stat);
+                    }
+                    else{
+                        String result = String.valueOf(map.get(source));
+                        if(result == null){
+                            throw new NullPointerException();
+                        }
+                        else{
+                            Long res = Long.parseLong(result);
+                            fieldConversionResult.updateGenericRecordBuilder(field, res);
+                            Integer[] stat = statsTable.get(field.name());
+                            stat[COL_NON_NULL_VALUES] += 1;
+                            statsTable.put(field.name(), stat);
+                        }
+                    }
+
+                }
+                else {
+                    Long date = TimeUtils.timeToMillisecondsConverter(record.getString(field.name()), timeFormatter, inputEpochInMilliseconds, timeZone);
+                    checkFieldValidity(field, checkForNullLong(date, field.name()) == null, longNullValues.contains(date));
+                    fieldConversionResult.updateGenericRecordBuilder(field, date);
+                    Integer[] stat = statsTable.get(field.name());
+                    stat[COL_NON_NULL_VALUES] += 1;
+                    statsTable.put(field.name(), stat);
+                }
             } catch (DateTimeParseException e) {
                 try {
                     Long number = record.getLong(field.name());
@@ -1254,6 +1329,25 @@ public class Ldb4RdbConverter {
             return Schema.Type.LONG;
         } else if (field.name().equals("radius")) {
             targetName = radius;
+        } else if(databaseHeaders.contains(field.name())){
+            switch(databaseHeaderTypes.get(field.name())){
+                case "long": {
+                    return Schema.Type.LONG;
+                }
+                case "double": {
+                    return Schema.Type.DOUBLE;
+                }
+                case "string": {
+                    return Schema.Type.STRING;
+                }
+                case "float": {
+                    return Schema.Type.FLOAT;
+                }
+                default:{
+                    log.info("This should not be possible");
+                    return null;
+                }
+            }
         } else if (tokenHeaders.keySet().contains(field.name())){
             switch(tokenTypes.get(field.name())){
                 case "long": {
@@ -1501,7 +1595,6 @@ public class Ldb4RdbConverter {
 
         parser.stopParsing();
 
-
         // Otherwise throws concurrentmodificationexception
         List<String> iterHeaders = new LinkedList<>(headers);
 
@@ -1527,13 +1620,44 @@ public class Ldb4RdbConverter {
             headers.add(row);
             examples.add("0"); // The type of this does not count, as token rows are given types based on the entries in tokenTypes
         }
+        for(String file: databaseFiles){
+            String[] parts = file.split("&");
+            String source = parts[0];
+            String end = parts[1];
+            String[] parts2 = end.split("\\.");
+            String target = parts2[0];
+            databaseHeaders.add(target);
+            DB db = DBMaker.fileDB(file).make();
+            HTreeMap map = db.hashMap(target).createOrOpen();
+            map.put("map_size", map.size());
+            databases.put(target, db);
+            databaseSources.put(target, source);
+            databaseHashes.put(target, map.size());
+        }
+
+        for(String row: databaseHeaders){
+            headers.add(row);
+            examples.add("0");     // Type needs to be declared in the config file.
+            if(longColumns.contains(row)){
+                databaseHeaderTypes.put(row, "long");
+            }
+            else if(stringColumns.contains(row)){
+                databaseHeaderTypes.put(row, "string");
+            }
+            else if(doubleColumns.contains(row)){
+                databaseHeaderTypes.put(row, "double");
+            }
+            else if(floatColumns.contains(row)){
+                databaseHeaderTypes.put(row, "float");
+            }
+        }
+
         JSONObject mainjson = createJSONFromCSVRecords(headers, examples);
         hashMapCounters = new long[hashColumns.size() + retainHashes.size()];
         for (int i = 0; i < (hashColumns.size() + retainHashes.size()); i++) {
             HashMap<String, Long> toAdd = new HashMap<>();
             hashTables.add(toAdd);
         }
-
 
         Arrays.fill(hashMapCounters, 0L);
 
@@ -1624,6 +1748,14 @@ public class Ldb4RdbConverter {
         } catch (java.io.IOException e) {
             log.info(String.format("Error writing parquet file %s", e.getMessage()));
         } finally {
+            for(String header: databaseHeaders){
+                DB db = databases.get(header);
+                HTreeMap map = db.hashMap(header).createOrOpen();
+                map.put("map_size", map.size());
+            }
+            for(DB db: databases.values()){
+                db.close();
+            }
             if (parquetWriter != null) {
                 try {
                     parquetWriter.close();
@@ -1632,7 +1764,6 @@ public class Ldb4RdbConverter {
                 }
             }
         }
-
         GeometryTransformer geometryTransformer = new GeometryTransformer(isCoordinateRandomizedInUncertainty, cells, cellLocationIdentifier);
         for (Path path : writtenFiles) {
             try (ParquetReader<GenericData.Record> reader = new AvroParquetReader(path)) {
@@ -1660,7 +1791,6 @@ public class Ldb4RdbConverter {
                 log.error("Exception occurred when renaming output files");
             }
         }
-
 
         //writeStatsFile();
         writeCsvStats();

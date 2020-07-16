@@ -1,6 +1,7 @@
 package com.demograft.ldb4rdbconverter.geometry;
 
 import avro.shaded.com.google.common.collect.Lists;
+import com.demograft.ldb4rdbconverter.Ldb4RdbConverter;
 import com.demograft.ldb4rdbconverter.utils.JsonUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.Schema;
@@ -8,19 +9,19 @@ import org.apache.avro.generic.GenericData;
 import org.apache.avro.generic.GenericRecordBuilder;
 import org.json.simple.JSONArray;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @Slf4j
 public class GeometryTransformer {
     private final boolean isCoordinateRandomizedInUncertainty;
     private final String identifierFieldName;
-
     private final Map<String, Integer> radiuses;
+    private static Set<String> derivedFields = Stream.of("geometryType", "geometryLatitude", "geometryLongitude", "orientationMajorAxis",
+            "innerSemiMajorRadius", "innerSemiMinorRadius", "outerSemiMajorRadius", "outerSemiMinorRadius",
+            "startAngle", "stopAngle").collect(Collectors.toSet());
 
     private static final int NEAREST_SITE_COUNT = 4;
 
@@ -55,6 +56,43 @@ public class GeometryTransformer {
         transformOuterRadiuses(record, type, radius);
         transformStartAngle(record, type);
         transformStopAngle(record, type);
+
+        // Statistics handling
+        for(String property: derivedFields){ // 0 - non-null; 1 - malformed values; null-values 2; zero-values 3;  0- min value; 1 - max value
+            if(property.equals("geometryType")){
+                String field = (String) record.get("geometryType");
+                Set<String> set = Ldb4RdbConverter.uniqueStrings.get(property);
+                set.add(field);
+                Ldb4RdbConverter.uniqueStrings.put("geometryType", set);
+                Integer[] stat = Ldb4RdbConverter.statsTable.get("geometryType");
+                stat[0] += 1;
+                Ldb4RdbConverter.statsTable.put("geometryType", stat);
+            }
+            else{
+                try {
+                    Float fieldValue = Float.parseFloat(String.valueOf(record.get(property)));
+                    Integer[] stat = Ldb4RdbConverter.statsTable.get(property);
+                    stat[0] += 1;
+                    Ldb4RdbConverter.statsTable.put(property, stat);
+                    Float[] stat2 = Ldb4RdbConverter.minMaxTable.get(property);
+                    if(fieldValue < stat2[0]){
+                        stat2[0] = fieldValue;
+                    }
+                    if(fieldValue > stat2[1]){
+                        stat2[1] = fieldValue;
+                    }
+                    Ldb4RdbConverter.minMaxTable.put(property, stat2);
+                } catch(NullPointerException e){
+                    Integer[] stat = Ldb4RdbConverter.statsTable.get(property);
+                    stat[2] += 1;
+                    Ldb4RdbConverter.statsTable.put(property, stat);
+                } catch(NumberFormatException e){
+                    Integer[] stat = Ldb4RdbConverter.statsTable.get(property);
+                    stat[1] += 1;
+                    Ldb4RdbConverter.statsTable.put(property, stat);
+                }
+            }
+        }
         return record;
     }
 
