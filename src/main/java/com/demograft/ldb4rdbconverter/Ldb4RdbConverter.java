@@ -2,6 +2,7 @@ package com.demograft.ldb4rdbconverter;
 
 import com.demograft.ldb4rdbconverter.geometry.Cell;
 import com.demograft.ldb4rdbconverter.geometry.GeometryTransformer;
+import com.demograft.ldb4rdbconverter.geometry.WKTGeometry;
 import com.demograft.ldb4rdbconverter.parser.CsvInputParser;
 import com.demograft.ldb4rdbconverter.parser.InputParser;
 import com.demograft.ldb4rdbconverter.parser.InputRecord;
@@ -72,12 +73,16 @@ public class Ldb4RdbConverter {
 
     private Map<String,String> databaseHeaderTypes = new HashMap<>();
 
+    private List<String> wktGeometryHeaders = new ArrayList<>();
+
+    private Map<String, WKTGeometry> wktMap = new HashMap<>();
+
     private final String[] propertyNames = new String[]{"input-file", "output-file", "stats-file", "latitude", "longitude",
             "time", "start-time", "end-time", "columns-to-map-long", "headers", "long-null-values", "double-null-values",
             "float-null-values", "long-columns", "float-columns", "double-columns", "string-columns", "time-columns",
             "parquet-size", "excluded", "unique-strings", "timezone","headers","retain-hashes","trajectoryID","tokenFiles",
             "is-coordinate-randomized-in-uncertainty", "radius", "cell-location-identifier", "cell-location-equality-tolerance",
-            "default-type","non-negative","list-rows","database-files"};
+            "default-type","non-negative","list-rows","database-files","wkt-geometry-files"};
 
     Set<String> derivedFields = Stream.of("geometryType", "geometryLatitude", "geometryLongitude", "orientationMajorAxis",
         "innerSemiMajorRadius", "innerSemiMinorRadius", "outerSemiMajorRadius", "outerSemiMinorRadius",
@@ -372,6 +377,12 @@ public class Ldb4RdbConverter {
                 typelist.add("null");
                 typelist.add(databaseHeaderTypes.get(headername));
                 jo.put("type", typelist);
+            } else if (wktGeometryHeaders.contains(headername)){
+                jo.put("name", headername);
+                JSONArray typelist = new JSONArray();
+                typelist.add("null");
+                typelist.add("string");
+                jo.put("type", typelist);
             }
 
             // Then try to determine column type
@@ -433,14 +444,19 @@ public class Ldb4RdbConverter {
                     row.put("guiType", "dateTime");
                 }
                 data.add(row);
-            }
-            else if(!derivedFields.contains(field.name())){
+            } else if(!derivedFields.contains(field.name())){
                 if(hashColumns.contains(field.name()) || retainHashes.contains(field.name() + "_IDs")){
                     row.put("guiType", "ID");
                 }
                 row.put("attributeName", formattedName);
                 row.put("attributeTooltip", formattedName);
                 row.put("group", "Generic");
+                row.put("attributeId", field.name());
+                data.add(row);
+            } else if(wktGeometryHeaders.contains(field.name())){
+                row.put("attributeName", formattedName);
+                row.put("attributeTooltip", formattedName);
+                row.put("group", "Geographic Location");
                 row.put("attributeId", field.name());
                 data.add(row);
             }
@@ -691,6 +707,15 @@ public class Ldb4RdbConverter {
                 databaseFiles.add(file.trim());
             }
         }
+        if(defaultProp.containsKey("wkt-geometry-files")){
+            String propInfo = defaultProp.getProperty("wkt-geometry-files");
+            for (String file : propInfo.split(",")){
+                String[] pieces = file.split("\\.");
+                wktGeometryHeaders.add(pieces[0]);
+                WKTGeometry geo = new WKTGeometry(new File(file), "name");
+                wktMap.put(pieces[0], geo);
+            }
+        }
         if (defaultProp.containsKey("float-columns")) {
             String propInfo = defaultProp.getProperty("float-columns");
             for (String column : propInfo.split(",")) {
@@ -801,11 +826,16 @@ public class Ldb4RdbConverter {
         FieldConversionResult fieldConversionResult = new FieldConversionResult(schema);
         for (Schema.Field field : schema.getFields()) {
             Schema subschema = field.schema();
+            Schema.Type subSchemaType;
             if (derivedFields.contains(field.name())) {
                 continue;
             }
-
-            Schema.Type subSchemaType = getSchemaType(record, field, subschema);
+            if (wktGeometryHeaders.contains(field.name())) {
+                subSchemaType = Schema.Type.STRING;
+            }
+            else {
+                subSchemaType = getSchemaType(record, field, subschema);
+            }
 
             switch (subSchemaType) {
                 case LONG:
@@ -885,10 +915,12 @@ public class Ldb4RdbConverter {
 
     private void convertString(InputRecord record, FieldConversionResult fieldConversionResult, Schema.Field field) {
         try {
-
                 String answer;
                 String fieldName = field.name();
-                if(tokenHeaders.keySet().contains(fieldName)){
+                if(wktGeometryHeaders.contains(fieldName)){
+                    answer = wktMap.get(fieldName).getContainingAreaName(record.getDouble(longitude), record.getDouble(latitude));
+                }
+                else if(tokenHeaders.keySet().contains(fieldName)){
                     String preToken = record.getString(tokenHeaders.get(fieldName));
                     String nr = tokenMaps.get(fieldName).get(preToken.toLowerCase()).toString();
                     if (nr == null){
@@ -904,6 +936,9 @@ public class Ldb4RdbConverter {
                     }
                 }
                 checkFieldValidity(field, checkForNullString(answer, fieldName) == null, stringNullValues.contains(answer));
+                if(answer == null){
+                    throw new NullPointerException();
+                }
                 Set<String> set = uniqueStrings.get(fieldName);
                 set.add(answer);
                 uniqueStrings.put(fieldName, set);
@@ -911,7 +946,6 @@ public class Ldb4RdbConverter {
                 Integer[] stat = statsTable.get(fieldName);
                 stat[COL_NON_NULL_VALUES] += 1;
                 statsTable.put(fieldName, stat);
-
             } catch (NullPointerException e1) {
                 handleNullOrEmpty(fieldConversionResult, field);
             }
@@ -1650,6 +1684,13 @@ public class Ldb4RdbConverter {
             else if(floatColumns.contains(row)){
                 databaseHeaderTypes.put(row, "float");
             }
+        }
+
+        int count = 1;
+        for(String header: wktGeometryHeaders){
+            headers.add(header);
+            examples.add("0");    // These headers are always lists and as such strings.
+            count = count + 1;
         }
 
         JSONObject mainjson = createJSONFromCSVRecords(headers, examples);
