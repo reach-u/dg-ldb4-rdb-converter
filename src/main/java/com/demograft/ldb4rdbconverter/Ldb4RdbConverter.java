@@ -67,8 +67,6 @@ public class Ldb4RdbConverter {
 
     private StringBuilder statistics = new StringBuilder();
 
-    private List<String> listRows = new ArrayList<>();
-
     private StringBuilder csvStatistics = new StringBuilder();
 
     private Map<String,String> databaseHeaderTypes = new HashMap<>();
@@ -79,7 +77,7 @@ public class Ldb4RdbConverter {
 
     private final String[] propertyNames = new String[]{"input-file", "output-file", "stats-file", "latitude", "longitude",
             "time", "start-time", "end-time", "columns-to-map-long", "headers", "long-null-values", "double-null-values",
-            "float-null-values", "long-columns", "float-columns", "double-columns", "string-columns", "time-columns",
+            "float-null-values", "long-columns", "float-columns", "double-columns", "string-columns", "time-columns", "list-columns",
             "parquet-size", "excluded", "unique-strings", "timezone","headers","retain-hashes","trajectoryID","tokenFiles",
             "is-coordinate-randomized-in-uncertainty", "radius", "cell-location-identifier", "cell-location-equality-tolerance",
             "default-type","non-negative","list-rows","database-files","wkt-geometry-files"};
@@ -88,6 +86,7 @@ public class Ldb4RdbConverter {
         "innerSemiMajorRadius", "innerSemiMinorRadius", "outerSemiMajorRadius", "outerSemiMinorRadius",
         "startAngle", "stopAngle").collect(Collectors.toSet());
 
+    private List<String> listLists = new ArrayList<>();
 
     private final Set<String> propertySet = new HashSet<>(Arrays.asList(propertyNames));
 
@@ -168,7 +167,9 @@ public class Ldb4RdbConverter {
 
        */
 
-    public static HashMap<String, Integer[]> statsTable = new HashMap<>();
+    public static TreeMap<String, Set<String>> listsUniques = new TreeMap<>();
+
+    public static TreeMap<String, Integer[]> statsTable = new TreeMap<>();
 
     public static HashMap<String, Float[]> minMaxTable = new HashMap<>();
 
@@ -655,12 +656,6 @@ public class Ldb4RdbConverter {
                 hashColumns.add(column.trim());
             }
         }
-        if(defaultProp.containsKey("list-rows")) {
-            String propInfo = defaultProp.getProperty("list-rows");
-            for (String column : propInfo.split(",")) {
-                listRows.add(column.trim());
-            }
-        }
         if (defaultProp.containsKey("time-columns")) {
             String propInfo = defaultProp.getProperty("time-columns");
             for (String column : propInfo.split(",")) {
@@ -732,6 +727,12 @@ public class Ldb4RdbConverter {
             String propInfo = defaultProp.getProperty("tokenFiles");
             for (String column : propInfo.split(",")){
                 tokenFiles.add(column.trim());
+            }
+        }
+        if (defaultProp.containsKey("list-columns")) {
+            String propInfo = defaultProp.getProperty("list-columns");
+            for (String column : propInfo.split(",")){
+                listLists.add(column.trim());
             }
         }
         if (defaultProp.containsKey("string-columns")) {
@@ -939,9 +940,18 @@ public class Ldb4RdbConverter {
                 if(answer == null){
                     throw new NullPointerException();
                 }
-                Set<String> set = uniqueStrings.get(fieldName);
-                set.add(answer);
-                uniqueStrings.put(fieldName, set);
+                if(!listLists.contains(fieldName)) {
+                    Set<String> set = uniqueStrings.get(fieldName);
+                    set.add(answer);
+                    uniqueStrings.put(fieldName, set);
+                }
+                else{
+                    Set<String> set = listsUniques.get(fieldName);
+                    String[] answers = answer.split(Character.toString((char)0x1E));
+                    List<String> answerList= new ArrayList<>(Arrays.asList(answers));
+                    set.addAll(answerList);
+                    listsUniques.put(fieldName, set);
+                }
                 fieldConversionResult.updateGenericRecordBuilder(field, answer);
                 Integer[] stat = statsTable.get(fieldName);
                 stat[COL_NON_NULL_VALUES] += 1;
@@ -1475,66 +1485,134 @@ public class Ldb4RdbConverter {
         csvStatistics.append("Start time:" + beginDate.toString() + "\nEnd time:  " + endDate.toString() + ". \n\n");
         csvStatistics.append("Total records:" + totalRecords + ", Faulty records:" + (totalRecords - writtenRecords) + "\n\n");
         csvStatistics.append("Arithmetic operations: ! - subtraction, + - addition, : - divison, * - multiplication \n\n");
-        csvStatistics.append("field,type,min,max,zero,non-null,unique,null,invalid,null definition,arithmetics \n");
+        csvStatistics.append("field,type,min,max,zero,non-null,unique,null,invalid,null definition,arithmetics \n\n");
+        csvStatistics.append("Base fields: \n");
         DecimalFormat df = new DecimalFormat();
         df.applyPattern("###.##");
-        for(String column: statsTable.keySet()){
-            csvStatistics.append(column+ ",");
-            csvStatistics.append(typeToString(typeTable.get(column)) + ",");
-            if(minMaxTable.keySet().contains(column)){
-                if (minMaxTable.get(column)[0] == Float.MAX_VALUE & minMaxTable.get(column)[1] == Float.MIN_VALUE){
-                    csvStatistics.append("N/A,N/A,");
+
+        //Determine alphapetical order.
+        Set<String> correctSet = statsTable.keySet();
+        List<String> correctOrder = new ArrayList<>(correctSet);
+        Collections.sort(correctOrder,String.CASE_INSENSITIVE_ORDER);
+        for(String column: correctOrder){
+            if(!derivedFields.contains(column)) {
+                csvStatistics.append(column + ",");
+                csvStatistics.append(typeToString(typeTable.get(column)) + ",");
+                if (minMaxTable.keySet().contains(column)) {
+                    if (minMaxTable.get(column)[0] == Float.MAX_VALUE & minMaxTable.get(column)[1] == Float.MIN_VALUE) {
+                        csvStatistics.append("N/A,N/A,");
+                    } else {
+                        csvStatistics.append(df.format(minMaxTable.get(column)[0]) + "," + df.format(minMaxTable.get(column)[1]) + ",");
+                    }
+                } else {
+                    csvStatistics.append(" , ,");
                 }
-                else{
+                csvStatistics.append(statsTable.get(column)[3] + ",");
+                csvStatistics.append(statsTable.get(column)[0] + ",");
+                if (listLists.contains(column)) {
+                    csvStatistics.append("List elements:" + listsUniques.get(column).size() + ",");
+                } else if (uniqueStrings.keySet().contains(column)){
+                    csvStatistics.append(uniqueStrings.get(column).size() + ",");
+                } else {
+                    csvStatistics.append(" ,");
+                }
+                csvStatistics.append(statsTable.get(column)[2] + ",");
+                csvStatistics.append(statsTable.get(column)[1] + ",");
+                if (typeToString(typeTable.get(column)).equals("float")) {
+                    for (float nr : floatNullValues) {
+                        csvStatistics.append(nr + ";");
+                    }
+                    if (rowNulls.keySet().contains(column)) {
+                        List<String> nulls = rowNulls.get(column);
+                        for (String nullValue : nulls)
+                            csvStatistics.append(nullValue + ";");
+                    }
+                } else if (typeToString(typeTable.get(column)).equals("double")) {
+                    for (double nr : doubleNullValues) {
+                        csvStatistics.append(nr + ";");
+                    }
+                    if (rowNulls.keySet().contains(column)) {
+                        List<String> nulls = rowNulls.get(column);
+                        for (String nullValue : nulls)
+                            csvStatistics.append(nullValue + ";");
+                    }
+                } else if (typeToString(typeTable.get(column)).equals("string")) {
+                    csvStatistics.append("[");
+                    for (String str : stringNullValues) {
+                        csvStatistics.append(str + ";");
+                    }
+                    if (rowNulls.keySet().contains(column)) {
+                        List<String> nulls = rowNulls.get(column);
+                        for (String nullValue : nulls)
+                            csvStatistics.append(nullValue + ";");
+                    }
+                    csvStatistics.append("]");
+                }
+                csvStatistics.append(",");
+                if (arithmetics.containsKey(column)) {
+                    for (String arith : arithmetics.get(column)) {
+                        csvStatistics.append(arith);
+                    }
+                }
+                csvStatistics.append("\n");
+            }
+        }
+        csvStatistics.append("\n");
+        csvStatistics.append("Derived fields: \n");
+        for(String column: derivedFields){
+            csvStatistics.append(column + ",");
+            csvStatistics.append(typeToString(typeTable.get(column)) + ",");
+            if (minMaxTable.keySet().contains(column)) {
+                if (minMaxTable.get(column)[0] == Float.MAX_VALUE & minMaxTable.get(column)[1] == Float.MIN_VALUE) {
+                    csvStatistics.append("N/A,N/A,");
+                } else {
                     csvStatistics.append(df.format(minMaxTable.get(column)[0]) + "," + df.format(minMaxTable.get(column)[1]) + ",");
                 }
-            }
-            else{
+            } else {
                 csvStatistics.append(" , ,");
             }
             csvStatistics.append(statsTable.get(column)[3] + ",");
             csvStatistics.append(statsTable.get(column)[0] + ",");
-            if(uniqueStrings.keySet().contains(column)){
+            if (uniqueStrings.keySet().contains(column)) {
                 csvStatistics.append(uniqueStrings.get(column).size() + ",");
-            }
-            else{
+            } else {
                 csvStatistics.append(" ,");
             }
             csvStatistics.append(statsTable.get(column)[2] + ",");
             csvStatistics.append(statsTable.get(column)[1] + ",");
-            if(typeToString(typeTable.get(column)).equals("float")){
-                for(float nr: floatNullValues){
+            if (typeToString(typeTable.get(column)).equals("float")) {
+                for (float nr : floatNullValues) {
                     csvStatistics.append(nr + ";");
                 }
-                if(rowNulls.keySet().contains(column)){
+                if (rowNulls.keySet().contains(column)) {
                     List<String> nulls = rowNulls.get(column);
-                    for(String nullValue: nulls)
-                    csvStatistics.append(nullValue + ";");
-                }
-            } else if (typeToString(typeTable.get(column)).equals("double")){
-                for(double nr: doubleNullValues){
-                    csvStatistics.append(nr + ";");
-                }
-                if(rowNulls.keySet().contains(column)){
-                    List<String> nulls = rowNulls.get(column);
-                    for(String nullValue: nulls)
+                    for (String nullValue : nulls)
                         csvStatistics.append(nullValue + ";");
                 }
-            } else if (typeToString(typeTable.get(column)).equals("string")){
+            } else if (typeToString(typeTable.get(column)).equals("double")) {
+                for (double nr : doubleNullValues) {
+                    csvStatistics.append(nr + ";");
+                }
+                if (rowNulls.keySet().contains(column)) {
+                    List<String> nulls = rowNulls.get(column);
+                    for (String nullValue : nulls)
+                        csvStatistics.append(nullValue + ";");
+                }
+            } else if (typeToString(typeTable.get(column)).equals("string")) {
                 csvStatistics.append("[");
-                for(String str: stringNullValues) {
+                for (String str : stringNullValues) {
                     csvStatistics.append(str + ";");
                 }
-                if(rowNulls.keySet().contains(column)){
+                if (rowNulls.keySet().contains(column)) {
                     List<String> nulls = rowNulls.get(column);
-                    for(String nullValue: nulls)
+                    for (String nullValue : nulls)
                         csvStatistics.append(nullValue + ";");
                 }
                 csvStatistics.append("]");
             }
             csvStatistics.append(",");
-            if(arithmetics.containsKey(column)){
-                for(String arith: arithmetics.get(column)){
+            if (arithmetics.containsKey(column)) {
+                for (String arith : arithmetics.get(column)) {
                     csvStatistics.append(arith);
                 }
             }
@@ -1623,6 +1701,7 @@ public class Ldb4RdbConverter {
             headerArray = parser.getHeader();
             headers = new LinkedList<>(Arrays.asList(headerArray));
         }
+
         InputRecord exampleRow = parser.parseNextRecord();
         String[] exampleArray = exampleRow.getValues();
         examples = new LinkedList<>(Arrays.asList(exampleArray));
@@ -1685,6 +1764,9 @@ public class Ldb4RdbConverter {
                 databaseHeaderTypes.put(row, "float");
             }
         }
+        for(String list: listLists){
+            listsUniques.put(list, new HashSet<>());
+        }
 
         int count = 1;
         for(String header: wktGeometryHeaders){
@@ -1699,6 +1781,7 @@ public class Ldb4RdbConverter {
             HashMap<String, Long> toAdd = new HashMap<>();
             hashTables.add(toAdd);
         }
+
 
         Arrays.fill(hashMapCounters, 0L);
 
