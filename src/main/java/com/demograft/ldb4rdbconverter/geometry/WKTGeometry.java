@@ -46,7 +46,7 @@ public class WKTGeometry implements Serializable {
         try {
             for(Record record: parser.iterateRecords(geometryFile)){
                 String areaName = record.getString(nameColumn);
-                String areaWkt = record.getString("WKT");
+                String areaWkt = record.getString("wkt");
 
                 areaNames.add(areaName);
                 areas.add(wktReader.read(areaWkt));

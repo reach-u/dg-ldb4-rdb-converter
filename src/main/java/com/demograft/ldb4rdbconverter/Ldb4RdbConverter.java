@@ -77,16 +77,18 @@ public class Ldb4RdbConverter {
 
     private final String[] propertyNames = new String[]{"input-file", "output-file", "stats-file", "latitude", "longitude",
             "time", "start-time", "end-time", "columns-to-map-long", "headers", "long-null-values", "double-null-values",
-            "float-null-values", "long-columns", "float-columns", "double-columns", "string-columns", "time-columns", "list-columns",
+            "float-null-values", "string-null-values","long-columns", "float-columns", "double-columns", "string-columns", "time-columns", "list-columns",
             "parquet-size", "excluded", "unique-strings", "timezone","headers","retain-hashes","trajectoryID","tokenFiles",
             "is-coordinate-randomized-in-uncertainty", "radius", "cell-location-identifier", "cell-location-equality-tolerance",
-            "default-type","non-negative","list-rows","database-files","wkt-geometry-files"};
+            "default-type","non-negative","list-rows","database-files","wkt-geometry-files","table-name"};
 
     Set<String> derivedFields = Stream.of("geometryType", "geometryLatitude", "geometryLongitude", "orientationMajorAxis",
         "innerSemiMajorRadius", "innerSemiMinorRadius", "outerSemiMajorRadius", "outerSemiMinorRadius",
         "startAngle", "stopAngle").collect(Collectors.toSet());
 
     private List<String> listLists = new ArrayList<>();
+
+    private String tableName = "";
 
     private final Set<String> propertySet = new HashSet<>(Arrays.asList(propertyNames));
 
@@ -297,7 +299,12 @@ public class Ldb4RdbConverter {
                 try {
                     Float.parseFloat(example);
                     jo.put("name", headername);
-                    jo.put("type", JsonUtils.getNullableFloatType());
+                    if(hashColumns.contains(headername)){
+                        jo.put("type", JsonUtils.getNullableLongType());
+                    }
+                    else {
+                        jo.put("type", JsonUtils.getNullableFloatType());
+                    }
                 } catch (NumberFormatException e2) {
                     JSONArray typelist = new JSONArray();
                     jo.put("name", headername);
@@ -438,6 +445,12 @@ public class Ldb4RdbConverter {
                 data.add(row);
             } else if (getSchemaType(field.schema()) == Schema.Type.LONG) {
                 row.put("attributeName", formattedName);
+                if(hashColumns.contains(field.name())){
+                    row.put("guiType", "ID");
+                }
+                if(field.name().endsWith("_IDs") || retainHashes.contains(field.name().substring(0,field.name().length() - 4))){
+                    row.put("guiType", "ID");
+                }
                 row.put("attributeTooltip", formattedName);
                 row.put("group", "Generic");
                 row.put("attributeId", field.name());
@@ -446,7 +459,7 @@ public class Ldb4RdbConverter {
                 }
                 data.add(row);
             } else if(!derivedFields.contains(field.name())){
-                if(hashColumns.contains(field.name()) || retainHashes.contains(field.name() + "_IDs")){
+                if(hashColumns.contains(field.name())){
                     row.put("guiType", "ID");
                 }
                 row.put("attributeName", formattedName);
@@ -487,7 +500,6 @@ public class Ldb4RdbConverter {
             data.add(traj);
         }
         attributeTr.put("data", data);
-
         try (FileWriter fw = new FileWriter(fileName)) {
             fw.write(attributeTr.toJSONString());
         } catch (IOException e) {
@@ -610,7 +622,7 @@ public class Ldb4RdbConverter {
         try (FileReader fileReader = new FileReader(configFile)) {
             defaultProp.load(fileReader);
         } catch (IOException e) {
-            log.info("Error reading the configuration file, make sure your configuration file is named correctly.");
+            log.info(e.getMessage());
         }
         if (!defaultProp.containsKey("input-file")) {
             throw new RuntimeException("Missing input-file property in configuration file");
@@ -789,6 +801,9 @@ public class Ldb4RdbConverter {
             String[] nonNegativesArray = nonNegatives.split(",");
             this.nonNegativeRows = new LinkedList<>(Arrays.asList(nonNegativesArray));
         }
+        if (defaultProp.containsKey("table-name")){
+            this.tableName = defaultProp.getProperty("table-name").trim();
+        }
         for (String key : defaultProp.stringPropertyNames()) {
             if (!propertySet.contains(key)) {
                 String propInfo = defaultProp.getProperty(key);
@@ -946,9 +961,21 @@ public class Ldb4RdbConverter {
                     uniqueStrings.put(fieldName, set);
                 }
                 else{
+                    String[] pieces = answer.split(";");
+                    List<String> pieceList = Arrays.asList(pieces);
+                    StringBuilder sb = new StringBuilder();
+                    for(int i = 0; i < pieceList.size(); i++){
+                        if(i == pieceList.size() - 1){
+                            sb.append(pieceList.get(i).trim());
+                        }
+                        else{
+                            sb.append((pieceList.get(i).trim() + (char)0x1E));
+                        }
+                    }
+                    answer = sb.toString();
                     Set<String> set = listsUniques.get(fieldName);
-                    String[] answers = answer.split(Character.toString((char)0x1E));
-                    List<String> answerList= new ArrayList<>(Arrays.asList(answers));
+                    String[] answers = answer.split(Character.toString((char)0x1E));  // ()
+                    List<String> answerList = new ArrayList<>(Arrays.asList(answers));
                     set.addAll(answerList);
                     listsUniques.put(fieldName, set);
                 }
@@ -1061,6 +1088,25 @@ public class Ldb4RdbConverter {
         if (field.name().equals("lon")) {
             try {
                 Double number = getValidatedLatitudeLongitude(record, field, longitude);
+                if(arithmetics.keySet().contains(longitude)){
+                    List<String> operations = arithmetics.get(longitude);
+                    for (String operation: operations){
+                        Character operator = operation.charAt(0);
+                        String nr = operation.substring(1);
+                        if(operator.equals('+')){
+                            number += Float.parseFloat(nr);
+                        }
+                        if(operator.equals('!')){
+                            number -= Float.parseFloat(nr);
+                        }
+                        if(operator.equals('*')){
+                            number = number * Float.parseFloat(nr);
+                        }
+                        if(operator.equals(':')){
+                            number = number / Float.parseFloat(nr);
+                        }
+                    }
+                }
                 if (number > 180 || number < -180) {
                     throw new NullPointerException();
                 }
@@ -1094,6 +1140,25 @@ public class Ldb4RdbConverter {
         } else if (field.name().equals("lat")) {
             try {
                 Double number = getValidatedLatitudeLongitude(record, field, latitude);
+                if(arithmetics.keySet().contains(latitude)){
+                    List<String> operations = arithmetics.get(latitude);
+                    for (String operation: operations){
+                        Character operator = operation.charAt(0);
+                        String nr = operation.substring(1);
+                        if(operator.equals('+')){
+                            number += Float.parseFloat(nr);
+                        }
+                        if(operator.equals('!')){
+                            number -= Float.parseFloat(nr);
+                        }
+                        if(operator.equals('*')){
+                            number = number * Float.parseFloat(nr);
+                        }
+                        if(operator.equals(':')){
+                            number = number / Float.parseFloat(nr);
+                        }
+                    }
+                }
                 if (number > 90 || number < -90) {
                     throw new NullPointerException();
                 }
@@ -1696,6 +1761,7 @@ public class Ldb4RdbConverter {
         } else {
             throw new RuntimeException(MessageFormat.format("Input file \"{0}\" does not have a valid input type", inputFile));
         }
+
         parser.beginParsing(exampleFile);
         if(!predefinedHeaders){
             headerArray = parser.getHeader();
@@ -1786,7 +1852,14 @@ public class Ldb4RdbConverter {
         Arrays.fill(hashMapCounters, 0L);
 
         Schema avroSchema = new Schema.Parser().parse(mainjson.toString());
-        writeAttributeFile(avroSchema, "attributeTranslation.json");
+        String attrFileName;
+        if(!tableName.equals("")){
+            attrFileName = "attributeTranslation-" + tableName + ".json";
+        }
+        else{
+            attrFileName = "attributeTranslation.json";
+        }
+        writeAttributeFile(avroSchema, attrFileName);
 
         for (Schema.Field field : avroSchema.getFields()) {
             statsTable.put(field.name(), new Integer[]{0, 0, 0, 0});
@@ -1833,6 +1906,9 @@ public class Ldb4RdbConverter {
             writtenFiles.add(newFilePath);
             for (File file : inputFiles) {
                 parser.beginParsing(file);
+                if(!predefinedHeaders){
+                    parser.parseNextRecord();
+                }
                 InputRecord record;
                 try {
                     while ((record = parser.parseNextRecord()) != null) {
@@ -1888,34 +1964,35 @@ public class Ldb4RdbConverter {
                 }
             }
         }
-        GeometryTransformer geometryTransformer = new GeometryTransformer(isCoordinateRandomizedInUncertainty, cells, cellLocationIdentifier);
-        for (Path path : writtenFiles) {
-            try (ParquetReader<GenericData.Record> reader = new AvroParquetReader(path)) {
-                ParquetWriter<GenericData.Record> writer =
-                        AvroParquetWriter.<GenericData.Record>builder(path.suffix("_with_geometry"))
-                                .withSchema(avroSchema)
-                                .withCompressionCodec(CompressionCodecName.SNAPPY)
-                                .withRowGroupSize(blockSize)
-                                .withPageSize(pageSize)
-                                .build();
-                GenericData.Record existingRecord = reader.read();
-                while (existingRecord != null) {
-                    GenericData.Record transformedRecord = geometryTransformer.transformRow(existingRecord);
-                    writer.write(transformedRecord);
-                    existingRecord = reader.read();
+        if (!radius.equals("")){
+            GeometryTransformer geometryTransformer = new GeometryTransformer(isCoordinateRandomizedInUncertainty, cells, cellLocationIdentifier);
+            for (Path path : writtenFiles) {
+                try (ParquetReader<GenericData.Record> reader = new AvroParquetReader(path)) {
+                    ParquetWriter<GenericData.Record> writer =
+                            AvroParquetWriter.<GenericData.Record>builder(path.suffix("_with_geometry"))
+                                    .withSchema(avroSchema)
+                                    .withCompressionCodec(CompressionCodecName.SNAPPY)
+                                    .withRowGroupSize(blockSize)
+                                    .withPageSize(pageSize)
+                                    .build();
+                    GenericData.Record existingRecord = reader.read();
+                    while (existingRecord != null) {
+                        GenericData.Record transformedRecord = geometryTransformer.transformRow(existingRecord);
+                        writer.write(transformedRecord);
+                        existingRecord = reader.read();
+                    }
+                    writer.close();
+                } catch (java.io.IOException e) {
+                    log.info(String.format("Error writing parquet file %s", e.getMessage()));
                 }
-                writer.close();
-            } catch (java.io.IOException e) {
-                log.info(String.format("Error writing parquet file %s", e.getMessage()));
-            }
-            try {
-                FileSystem fileSystem = FileSystem.get(new Configuration());
-                fileSystem.rename(path.suffix("_with_geometry"), path);
-            } catch (IOException e) {
-                log.error("Exception occurred when renaming output files");
+                try {
+                    FileSystem fileSystem = FileSystem.get(new Configuration());
+                    fileSystem.rename(path.suffix("_with_geometry"), path);
+                } catch (IOException e) {
+                    log.error("Exception occurred when renaming output files");
+                }
             }
         }
-
         //writeStatsFile();
         writeCsvStats();
     }

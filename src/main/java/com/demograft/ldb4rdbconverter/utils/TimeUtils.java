@@ -46,6 +46,25 @@ public class TimeUtils {
             // Intentionally empty
         }
         try {
+            DateTimeFormatter formatter
+                    = DateTimeFormatter.ISO_ZONED_DATE_TIME;
+
+            ZonedDateTime.parse(time, formatter);
+            return formatter;
+        } catch (DateTimeParseException e1) {
+            // Intentionally empty
+        }
+
+        // 2020-04-03 11:08:43.028970 UTC
+        try{
+            DateTimeFormatter formatter
+                    = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.nnnnnn zzz");
+            LocalDateTime.parse(time, formatter);
+            return formatter;
+        } catch(DateTimeParseException e1){
+
+        }
+        try {
             Long.parseLong(time);
             return null;
         } catch (NumberFormatException e1) {
@@ -54,7 +73,6 @@ public class TimeUtils {
         try {
             DateTimeFormatter formatter
                     = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
-
 
             LocalDateTime localdate = LocalDateTime.parse(time, formatter);
             ZonedDateTime.of(localdate, ZoneId.of(timeZone));
