@@ -15,7 +15,17 @@ public class Cell {
     private double locationEqualityTolerance;
 
     public Cell(GenericData.Record record, String identifierField, double locationEqualityTolerance) {
-        this.identifier = (String) record.get(identifierField);
+        try {
+            this.identifier = (String) record.get(identifierField);
+        }
+        catch(Exception e){
+            try{
+                this.identifier = String.valueOf(record.get(identifierField));
+            }
+            catch(Exception e1){
+                this.identifier = "unknown";
+            }
+        }
         this.radius = (Float) record.get("radius");
         this.coordinate = new Coordinate((Double) record.get("lat"), (Double) record.get("lon"));
         this.locationEqualityTolerance = locationEqualityTolerance;

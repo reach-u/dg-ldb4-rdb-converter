@@ -1564,7 +1564,7 @@ public class Ldb4RdbConverter {
                 csvStatistics.append(column + ",");
                 csvStatistics.append(typeToString(typeTable.get(column)) + ",");
                 if (minMaxTable.keySet().contains(column)) {
-                    if (minMaxTable.get(column)[0] == Float.MAX_VALUE & minMaxTable.get(column)[1] == Float.MIN_VALUE) {
+                    if (minMaxTable.get(column)[0] == Float.MAX_VALUE & minMaxTable.get(column)[1] == -Float.MAX_VALUE) {
                         csvStatistics.append("N/A,N/A,");
                     } else {
                         csvStatistics.append(df.format(minMaxTable.get(column)[0]) + "," + df.format(minMaxTable.get(column)[1]) + ",");
@@ -1628,7 +1628,7 @@ public class Ldb4RdbConverter {
             csvStatistics.append(column + ",");
             csvStatistics.append(typeToString(typeTable.get(column)) + ",");
             if (minMaxTable.keySet().contains(column)) {
-                if (minMaxTable.get(column)[0] == Float.MAX_VALUE & minMaxTable.get(column)[1] == Float.MIN_VALUE) {
+                if (minMaxTable.get(column)[0] == Float.MAX_VALUE & minMaxTable.get(column)[1] == -Float.MAX_VALUE) {
                     csvStatistics.append("N/A,N/A,");
                 } else {
                     csvStatistics.append(df.format(minMaxTable.get(column)[0]) + "," + df.format(minMaxTable.get(column)[1]) + ",");
@@ -1865,7 +1865,7 @@ public class Ldb4RdbConverter {
             statsTable.put(field.name(), new Integer[]{0, 0, 0, 0});
             typeTable.put(field.name(), getSchemaType(field.schema()));
             if (getSchemaType(field.schema()) == Schema.Type.FLOAT || getSchemaType(field.schema()) == Schema.Type.DOUBLE) {
-                minMaxTable.put(field.name(), new Float[]{Float.MAX_VALUE, Float.MIN_VALUE});
+                minMaxTable.put(field.name(), new Float[]{Float.MAX_VALUE, -Float.MAX_VALUE});
             }
             if (getSchemaType(field.schema()) == Schema.Type.STRING) {
                 uniqueStrings.put(field.name(), new HashSet<>());

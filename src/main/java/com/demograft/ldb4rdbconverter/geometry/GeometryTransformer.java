@@ -38,7 +38,13 @@ public class GeometryTransformer {
             log.warn("No radiuses defined, geometry will not be added to record");
             return record;
         }
-        String cellIdentifier = (String) record.get(identifierFieldName);
+        String cellIdentifier;
+        try {
+            cellIdentifier = (String) record.get(identifierFieldName);
+        }
+        catch(ClassCastException e){
+            cellIdentifier = String.valueOf(record.get(identifierFieldName));
+        }
         Integer radius = radiuses.get(cellIdentifier);
 
         if (radius == null) {
